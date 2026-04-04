@@ -21,11 +21,11 @@ export const validateFields = (fields, body) => {
           return "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character";
         break;
 
-      case "fullName":
-        if (!body.fullName)
-          return "Full name is required";
-        if (!/^[a-zA-Z\s.'-]+$/.test(body.fullName.trim()))
-          return "Name contains invalid characters";
+      case "username":
+        if (!body.username)
+          return "Username is required";
+        if (!/^[a-zA-Z\s.'-]+$/.test(body.username.trim()))
+          return "Username contains invalid characters";
         break;
 
       case "phoneNumber":
