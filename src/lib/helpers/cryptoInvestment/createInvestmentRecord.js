@@ -1,6 +1,5 @@
 import { client } from "../../sanity.js";
 import { v4 as uuid } from "uuid";
-import { logUserActivity } from "../../logUserActivity.js";
 
 export async function createInvestmentRecord(
   userId,
@@ -41,24 +40,14 @@ export async function createInvestmentRecord(
 
     const result = await transaction.commit();
 
-    await logUserActivity(
-      userId,
-      "Crypto Investment Submitted",
-      `Investment created successfully for plan ${planId} with amount ${amount}`,
-      "success"
-    );
-
-    // Return plain object instead of calling sendResponse
-    return { success: true, data: result };
+    return {
+      success: true,
+      data: result,
+    };
   } catch (error) {
-    await logUserActivity(
-      userId,
-      "Crypto Investment Failed",
-      `Investment failed due to error: ${error.message}`,
-      "failed"
-    );
-
-    // Return plain object with error info
-    return { success: false, error: error.message };
+    return {
+      success: false,
+      error: error.message,
+    };
   }
 }

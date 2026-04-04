@@ -1,5 +1,4 @@
 import express from "express";
-import { withKycAuth } from "../../middlewares/auth/kycGuard.js";
 import { upload } from "../../middlewares/upload.js";
 import {
   createDepositHandler,
@@ -12,7 +11,6 @@ const router = express.Router();
 router.post(
   "/",
   withAuth,
-  withKycAuth,
   upload.single("proofOfPayment"),
   createDepositHandler
 );

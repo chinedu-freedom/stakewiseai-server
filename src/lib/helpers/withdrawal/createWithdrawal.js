@@ -1,5 +1,4 @@
 import { v4 as uuidv4 } from "uuid";
-import { logUserActivity } from "../../logUserActivity.js";
 import { client } from "../../sanity.js";
 import { sendWithdrawalNotificationEmail } from "../../mailer.js";
 
@@ -24,7 +23,7 @@ export async function createWithdrawal({
     requestedAt: now,
   };
 
-  // 🔒 ATOMIC TRANSACTION — NULL SAFE
+  // 🔒 Atomic transaction
   await client
     .transaction()
     // 1️⃣ Reserve profit safely
@@ -36,29 +35,21 @@ export async function createWithdrawal({
     .create(newWithdrawal)
     .commit();
 
-  // Log withdrawal request
-  await logUserActivity(
-    userId,
-    "Withdrawal",
-    `Withdrawal request submitted — ${amount} ${cryptoType} to ${wallet} (ID: ${withdrawalId})`,
-    "pending"
-  );
-
-  // Notify user
+  // Notify user (non-blocking)
   sendWithdrawalNotificationEmail({
     email: userData.email,
-    name: userData.fullName,
+    name: userData.username || "User",
     crypto: cryptoType,
     amount,
     walletAddress: wallet,
     status: "Pending",
     date: now,
     isAdmin: false,
-  }).catch(err => {
+  }).catch((err) => {
     console.error("USER_WITHDRAWAL_NOTIFICATION_ERROR:", err);
   });
 
-  // Notify admin
+  // Notify admin (non-blocking)
   sendWithdrawalNotificationEmail({
     email: process.env.ADMIN_EMAIL,
     name: "Admin",
@@ -68,9 +59,9 @@ export async function createWithdrawal({
     status: "Pending",
     date: now,
     isAdmin: true,
-    userName: userData.fullName,
+    userName: userData.username,
     userEmail: userData.email,
-  }).catch(err => {
+  }).catch((err) => {
     console.error("ADMIN_WITHDRAWAL_NOTIFICATION_ERROR:", err);
   });
 
