@@ -26,7 +26,6 @@ export const getUserProfileController = asyncHandler(async (req, res) => {
     totalProfit,
     reservedProfit,
     emailVerified,
-    authProvider,
     _createdAt
   }`;
 

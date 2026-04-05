@@ -111,9 +111,9 @@ export const register = asyncHandler(async (req, res) => {
     tokenDigest,
     verificationToken,
     role: "user",
-    authProvider: "email",
-    isDeleted: false,
     tokenExpiresAt: addMinutes(new Date(), 10).toISOString(),
+    createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
   });
 
   // Send email
@@ -192,14 +192,32 @@ export const login = asyncHandler(async (req, res) => {
     );
   }
 
-  if (user.accountStatus !== "active") {
+if (user.accountStatus !== "active") {
+  if (user.accountStatus === "pending") {
     return sendResponse(
       res,
       false,
-      `Your account is ${user.accountStatus}`,
+      "Your account is pending. Please verify your email.",
       403
     );
   }
+
+  if (user.accountStatus === "suspended") {
+    return sendResponse(
+      res,
+      false,
+      "Your account has been suspended. Please contact support.",
+      403
+    );
+  }
+
+  return sendResponse(
+    res,
+    false,
+    `Your account is ${user.accountStatus}. Please contact support.`,
+    403
+  );
+}
 
   if (!user.emailVerified) {
     const tokenExpired =
