@@ -5,6 +5,11 @@ import { client } from "../lib/sanity.js";
 import { getPaginationParams, buildPaginationMeta } from "../lib/pagination.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 
+const MIN_WITHDRAWAL = 20;
+const MAX_WITHDRAWAL = 100;
+const DAILY_WITHDRAWAL_LIMIT = 100;
+const MAX_DAILY_WITHDRAWALS = 5;
+
 
 export const createWithdrawalHandler = asyncHandler(async (req, res) => {
   const { user } = req; // attached by withAuth / withKycAuth
@@ -54,5 +59,69 @@ export const getWithdrawalsHandler = asyncHandler(async (req, res) => {
   return sendResponse(res, true, "Withdrawals fetched successfully", 200, {
     withdrawals,
     pagination,
+  });
+});
+
+
+export const getWithdrawalLimitsController = asyncHandler(async (req, res) => {
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return sendResponse(res, false, "Unauthorized", 401);
+  }
+
+  const userData = await client.fetch(
+    `*[_type == "user" && _id == $userId][0]{
+      totalProfit,
+      reservedProfit,
+      "availableProfit": coalesce(totalProfit, 0) - coalesce(reservedProfit, 0)
+    }`,
+    { userId }
+  );
+
+  if (!userData) {
+    return sendResponse(res, false, "User not found", 404);
+  }
+
+  const availableProfit = Number(userData.availableProfit) || 0;
+
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const dailyData = await client.fetch(
+    `{
+      "count": count(*[
+        _type=="withdrawal" &&
+        user._ref==$userId &&
+        requestedAt >= $startOfDay
+      ]),
+      "total": sum(*[
+        _type=="withdrawal" &&
+        user._ref==$userId &&
+        requestedAt >= $startOfDay
+      ].amount)
+    }`,
+    { userId, startOfDay: startOfDay.toISOString() }
+  );
+
+  const dailyCount = dailyData?.count || 0;
+  const dailyTotal = dailyData?.total || 0;
+
+  const remainingDailyLimit = Math.max(
+    0,
+    DAILY_WITHDRAWAL_LIMIT - dailyTotal
+  );
+
+  return sendResponse(res, true, "Withdrawal limits fetched", 200, {
+    minWithdrawal: MIN_WITHDRAWAL,
+    maxWithdrawal: MAX_WITHDRAWAL,
+    maxDailyLimit: DAILY_WITHDRAWAL_LIMIT,
+    maxDailyWithdrawals: MAX_DAILY_WITHDRAWALS,
+
+    dailyTotal,
+    dailyCount,
+    remainingDailyLimit,
+
+    availableProfit,
   });
 });

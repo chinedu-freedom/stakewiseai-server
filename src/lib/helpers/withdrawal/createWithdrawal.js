@@ -5,7 +5,6 @@ import { sendWithdrawalNotificationEmail } from "../../mailer.js";
 export async function createWithdrawal({
   userId,
   userData,
-  cryptoType,
   amount,
   wallet,
 }) {
@@ -16,7 +15,7 @@ export async function createWithdrawal({
     _id: withdrawalId,
     _type: "withdrawal",
     user: { _type: "reference", _ref: userId },
-    crypto: cryptoType,
+    crypto: "USDT",
     amount,
     walletAddress: wallet,
     status: "pending",
