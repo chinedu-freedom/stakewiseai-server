@@ -1,9 +1,9 @@
-import { validateAndPrepareDeposit } from "../../lib/helpers/deposit/validateAndPrepareDeposit.js";
-import { createDeposit } from "../../lib/helpers/deposit/createDeposit.js";
-import { sendResponse } from "../../lib/response.js";
-import { asyncHandler } from "../../lib/asyncHandler.js";
-import { client } from "../../lib/sanity.js";
-import { getPaginationParams, buildPaginationMeta } from "../../lib/pagination.js";
+import { validateAndPrepareDeposit } from "../lib/helpers/deposit/validateAndPrepareDeposit.js";
+import { createDeposit } from "../lib/helpers/deposit/createDeposit.js";
+import { sendResponse } from "../lib/response.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
+import { client } from "../lib/sanity.js";
+import { getPaginationParams, buildPaginationMeta } from "../lib/pagination.js";
 
 export const createDepositHandler = async (req, res, next) => {
   try {

@@ -1,9 +1,9 @@
-import { validateAndPrepareWithdrawal } from "../../lib/helpers/withdrawal/validateAndPrepareWithdrawal.js";
-import { sendResponse } from "../../lib/response.js";
-import { createWithdrawal } from "../../lib/helpers/withdrawal/createWithdrawal.js";
-import { client } from "../../lib/sanity.js";
-import { getPaginationParams, buildPaginationMeta } from "../../lib/pagination.js";
-import { asyncHandler } from "../../lib/asyncHandler.js";
+import { validateAndPrepareWithdrawal } from "../lib/helpers/withdrawal/validateAndPrepareWithdrawal.js";
+import { sendResponse } from "../lib/response.js";
+import { createWithdrawal } from "../lib/helpers/withdrawal/createWithdrawal.js";
+import { client } from "../lib/sanity.js";
+import { getPaginationParams, buildPaginationMeta } from "../lib/pagination.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
 
 
 export const createWithdrawalHandler = asyncHandler(async (req, res) => {

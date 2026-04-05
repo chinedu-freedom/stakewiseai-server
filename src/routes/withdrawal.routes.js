@@ -2,8 +2,8 @@ import express from "express";
 import {
   createWithdrawalHandler,
   getWithdrawalsHandler,
-} from "../../controllers/withdrawal/withdrawal.controller.js";
-import { withAuth } from "../../middlewares/auth/authGuard.js";
+} from "../controllers/withdrawal.controller.js";
+import { withAuth } from "../middlewares/auth/authGuard.js";
 
 const router = express.Router();
 
