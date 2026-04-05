@@ -1,8 +1,9 @@
 import { client } from "../../sanity.js";
 import { sendResponse } from "../../response.js";
 
-const MIN_WITHDRAWAL = 100;
-const MAX_WITHDRAWAL = 1_000_000;
+const MIN_WITHDRAWAL = 20;
+const MAX_WITHDRAWAL = 100;
+const DAILY_WITHDRAWAL_LIMIT = 100;
 const MAX_DAILY_WITHDRAWALS = 5;
 
 export async function validateAndPrepareWithdrawal(req, user, res) {
@@ -13,25 +14,18 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
     return { error: true };
   }
 
-  const { crypto, amount, walletAddress } = req.body;
+  const { amount, walletAddress } = req.body;
 
   const wallet = walletAddress?.trim();
-  const cryptoType = crypto?.toUpperCase();
   const parsedAmount = Number(amount);
 
-  // Validate crypto
-  if (!cryptoType) {
-    sendResponse(res, false, "Crypto type is required", 400);
-    return { error: true };
-  }
+  const cryptoType = "USDT";
 
-  // Validate wallet
   if (!wallet) {
     sendResponse(res, false, "Wallet address is required", 400);
     return { error: true };
   }
 
-  // Validate amount
   if (amount === undefined || amount === null || isNaN(parsedAmount)) {
     sendResponse(res, false, "Amount must be a valid number", 400);
     return { error: true };
@@ -51,26 +45,12 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
     sendResponse(
       res,
       false,
-      `Maximum withdrawal is $${MAX_WITHDRAWAL}`,
+      `Maximum withdrawal per request is $${MAX_WITHDRAWAL}`,
       400
     );
     return { error: true };
   }
 
-  // Validate crypto list
-  const allowedCryptos = ["USDT", "BTC", "ETH", "BNB", "TRX"];
-
-  if (!allowedCryptos.includes(cryptoType)) {
-    sendResponse(
-      res,
-      false,
-      "Invalid crypto type. Allowed: USDT, BTC, ETH, BNB, TRX.",
-      400
-    );
-    return { error: true };
-  }
-
-  // Fetch user safely (null-proof calculation)
   const userData = await client.fetch(
     `*[_type == "user" && _id == $userId][0]{
       _id,
@@ -95,7 +75,59 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
     return { error: true };
   }
 
-  // Check existing pending withdrawal
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const dailyData = await client.fetch(
+    `{
+      "count": count(*[
+        _type=="withdrawal" &&
+        user._ref==$userId &&
+        requestedAt >= $startOfDay
+      ]),
+      "total": sum(*[
+        _type=="withdrawal" &&
+        user._ref==$userId &&
+        requestedAt >= $startOfDay
+      ].amount)
+    }`,
+    { userId, startOfDay: startOfDay.toISOString() }
+  );
+
+  const dailyCount = dailyData?.count || 0;
+  const dailyTotal = dailyData?.total || 0;
+
+  const remainingDailyLimit =
+    DAILY_WITHDRAWAL_LIMIT - dailyTotal;
+
+  // Max 5 withdrawals per day
+  if (dailyCount >= MAX_DAILY_WITHDRAWALS) {
+    sendResponse(
+      res,
+      false,
+      "Daily withdrawal limit reached (5 per day)",
+      400,
+      {
+        remainingDailyLimit: Math.max(0, remainingDailyLimit),
+      }
+    );
+    return { error: true };
+  }
+
+  // Total daily limit
+  if (dailyTotal + parsedAmount > DAILY_WITHDRAWAL_LIMIT) {
+    sendResponse(
+      res,
+      false,
+      `Daily withdrawal limit exceeded. You can only withdraw up to $${DAILY_WITHDRAWAL_LIMIT} per day.`,
+      400,
+      {
+        remainingDailyLimit: Math.max(0, remainingDailyLimit),
+      }
+    );
+    return { error: true };
+  }
+
   const pendingWithdrawal = await client.fetch(
     `count(*[_type=="withdrawal" && user._ref==$userId && status=="pending"])`,
     { userId }
@@ -106,30 +138,10 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
       res,
       false,
       "You already have a pending withdrawal",
-      400
-    );
-    return { error: true };
-  }
-
-  // Daily withdrawal limit
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const dailyWithdrawals = await client.fetch(
-    `count(*[
-      _type=="withdrawal" &&
-      user._ref==$userId &&
-      requestedAt >= $startOfDay
-    ])`,
-    { userId, startOfDay: startOfDay.toISOString() }
-  );
-
-  if (dailyWithdrawals >= MAX_DAILY_WITHDRAWALS) {
-    sendResponse(
-      res,
-      false,
-      "Daily withdrawal limit reached (5 per day)",
-      400
+      400,
+      {
+        remainingDailyLimit: Math.max(0, remainingDailyLimit),
+      }
     );
     return { error: true };
   }
@@ -141,5 +153,6 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
     amount: parsedAmount,
     wallet,
     availableProfit,
+    remainingDailyLimit: Math.max(0, remainingDailyLimit),
   };
 }
