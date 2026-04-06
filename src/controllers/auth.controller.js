@@ -246,10 +246,10 @@ if (user.accountStatus !== "active") {
 
   res.cookie("token", accessToken, {
     httpOnly: true,
-    // secure: false,
-    // sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: false,
+    sameSite: "lax",
+    // secure: process.env.NODE_ENV === "production",
+    // sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: keepMeLoggedIn ? 86400000 : 3600000,
   });
 

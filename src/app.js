@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import morgan from "morgan";
 import authRoutes from "./routes/auth.routes.js";
+import walletRoutes from "./routes/wallet.routes.js";
 import withdrawalRoutes from "./routes/withdrawal.routes.js";
 import depositRoutes from "./routes/deposit.routes.js";
 import investmentRoutes from "./routes/user/investment/investment.routes.js";
@@ -39,6 +40,7 @@ startInvestmentScheduler();
 
 app.use("/api/auth", authRoutes);
 app.use("/api/withdrawals", withdrawalRoutes);
+app.use("/api/wallets", walletRoutes);
 app.use("/api/deposits", depositRoutes);
 app.use("/api/investments", investmentRoutes);
 app.use("/api/users/me/investments", userInvestmentRoutes);
