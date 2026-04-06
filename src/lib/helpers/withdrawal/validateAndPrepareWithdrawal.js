@@ -21,13 +21,16 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
 
   const cryptoType = "USDT";
 
+  // =========================
+  // BASIC VALIDATION
+  // =========================
   if (!wallet) {
     sendResponse(res, false, "Wallet address is required", 400);
     return { error: true };
   }
 
   if (amount === undefined || amount === null || isNaN(parsedAmount)) {
-    sendResponse(res, false, "Amount must be a valid number", 400);
+    sendResponse(res, false, "Amount is required and must be a valid number", 400);
     return { error: true };
   }
 
@@ -51,6 +54,9 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
     return { error: true };
   }
 
+  // =========================
+  // FETCH USER
+  // =========================
   const userData = await client.fetch(
     `*[_type == "user" && _id == $userId][0]{
       _id,
@@ -75,32 +81,36 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
     return { error: true };
   }
 
+  // =========================
+  // DAILY LIMIT CALCULATION (FIXED)
+  // =========================
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
-  const dailyData = await client.fetch(
-    `{
-      "count": count(*[
-        _type=="withdrawal" &&
-        user._ref==$userId &&
-        requestedAt >= $startOfDay
-      ]),
-      "total": sum(*[
-        _type=="withdrawal" &&
-        user._ref==$userId &&
-        requestedAt >= $startOfDay
-      ].amount)
+  const todayWithdrawals = await client.fetch(
+    `*[
+      _type=="withdrawal" &&
+      user._ref==$userId &&
+      requestedAt >= $startOfDay
+    ]{
+      amount
     }`,
     { userId, startOfDay: startOfDay.toISOString() }
   );
 
-  const dailyCount = dailyData?.count || 0;
-  const dailyTotal = dailyData?.total || 0;
+  const dailyCount = todayWithdrawals.length;
+
+  const dailyTotal = todayWithdrawals.reduce(
+    (sum, w) => sum + (Number(w.amount) || 0),
+    0
+  );
 
   const remainingDailyLimit =
     DAILY_WITHDRAWAL_LIMIT - dailyTotal;
 
-  // Max 5 withdrawals per day
+  // =========================
+  // DAILY COUNT LIMIT
+  // =========================
   if (dailyCount >= MAX_DAILY_WITHDRAWALS) {
     sendResponse(
       res,
@@ -114,7 +124,7 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
     return { error: true };
   }
 
-  // Total daily limit
+  // =========================
   if (dailyTotal + parsedAmount > DAILY_WITHDRAWAL_LIMIT) {
     sendResponse(
       res,

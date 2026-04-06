@@ -38,7 +38,7 @@ export async function createWithdrawal({
   sendWithdrawalNotificationEmail({
     email: userData.email,
     name: userData.username || "User",
-    crypto: cryptoType,
+    crypto,
     amount,
     walletAddress: wallet,
     status: "Pending",
@@ -52,7 +52,7 @@ export async function createWithdrawal({
   sendWithdrawalNotificationEmail({
     email: process.env.ADMIN_EMAIL,
     name: "Admin",
-    crypto: cryptoType,
+    crypto,
     amount,
     walletAddress: wallet,
     status: "Pending",
@@ -66,7 +66,6 @@ export async function createWithdrawal({
 
   return {
     _id: withdrawalId,
-    crypto: cryptoType,
     amount,
     walletAddress: wallet,
     status: "pending",
