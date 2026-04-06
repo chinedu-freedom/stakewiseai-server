@@ -21,9 +21,6 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
 
   const cryptoType = "USDT";
 
-  // =========================
-  // BASIC VALIDATION
-  // =========================
   if (!wallet) {
     sendResponse(res, false, "Wallet address is required", 400);
     return { error: true };
@@ -54,9 +51,6 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
     return { error: true };
   }
 
-  // =========================
-  // FETCH USER
-  // =========================
   const userData = await client.fetch(
     `*[_type == "user" && _id == $userId][0]{
       _id,
@@ -81,9 +75,6 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
     return { error: true };
   }
 
-  // =========================
-  // DAILY LIMIT CALCULATION (FIXED)
-  // =========================
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
@@ -108,9 +99,6 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
   const remainingDailyLimit =
     DAILY_WITHDRAWAL_LIMIT - dailyTotal;
 
-  // =========================
-  // DAILY COUNT LIMIT
-  // =========================
   if (dailyCount >= MAX_DAILY_WITHDRAWALS) {
     sendResponse(
       res,
@@ -124,7 +112,6 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
     return { error: true };
   }
 
-  // =========================
   if (dailyTotal + parsedAmount > DAILY_WITHDRAWAL_LIMIT) {
     sendResponse(
       res,

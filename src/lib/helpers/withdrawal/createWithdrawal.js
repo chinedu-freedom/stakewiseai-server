@@ -19,7 +19,8 @@ export async function createWithdrawal({
     amount,
     walletAddress: wallet,
     status: "pending",
-    requestedAt: now,
+     requestedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
   };
 
   // 🔒 Atomic transaction
