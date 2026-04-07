@@ -25,7 +25,6 @@ import { findUserByEmail } from "../lib/findUserByEmail.js";
 
 export const register = asyncHandler(async (req, res) => {
   const sanitized = sanitizeInput(req.body);
-
   const {
     username,
     email,
