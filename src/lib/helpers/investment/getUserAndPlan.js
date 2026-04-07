@@ -10,13 +10,14 @@ export async function getUserAndPlan(userId, planId) {
       { userId }
     ),
     client.fetch(
-      `*[_type == "cryptoPlan" && _id == $planId && status == "active"][0]{
+      `*[_type == "plan" && _id == $planId && status == "active"][0]{
         _id,
         title,
         minDeposit,
         maxDeposit,
         dailyProfit,
-        contractDuration
+        contractDuration,
+        isFixedDeposit
       }`,
       { planId }
     ),
@@ -33,18 +34,13 @@ export async function getUserAndPlan(userId, planId) {
   if (!plan) {
     return {
       success: false,
-      message: "Crypto plan not found",
+      message: "Plan not found or inactive",
       status: 404,
     };
   }
 
   return {
     success: true,
-    message: "User and plan fetched successfully",
-    status: 200,
-    data: {
-      user,
-      plan,
-    },
+    data: { user, plan },
   };
 }

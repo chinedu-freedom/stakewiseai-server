@@ -42,11 +42,13 @@ export const createCryptoInvestmentHandler = asyncHandler(async (req, res) => {
   const { user, plan } = userPlanResponse.data;
 
   // Eligibility check
-  const eligibilityResponse = await validateInvestmentEligibility(
-    user,
-    plan,
-    amount
-  );
+const eligibilityResponse = await validateInvestmentEligibility(
+  user,
+  plan,
+  amount,
+  userId,
+  planId
+);
 
   if (!eligibilityResponse.success) {
     return sendResponse(
@@ -58,13 +60,12 @@ export const createCryptoInvestmentHandler = asyncHandler(async (req, res) => {
   }
 
   // Create investment
-  const investmentResponse = await createInvestmentRecord(
-    user,
-    plan,
-    userId,
-    planId,
-    amount
-  );
+const investmentResponse = await createInvestmentRecord(
+  userId,
+  plan,
+  planId,
+  amount
+);
 
   if (investmentResponse.success) {
     return sendResponse(

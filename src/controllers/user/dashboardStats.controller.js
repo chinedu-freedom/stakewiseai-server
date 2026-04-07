@@ -9,11 +9,13 @@ export const getDashboardStatsController = asyncHandler(async (req, res) => {
     return sendResponse(res, false, "Unauthorized: Please log in", 401);
   }
 
+  // ✅ Fetch user financial data (single source of truth)
   const userData = await client.fetch(
     `*[_type == "user" && _id == $userId][0]{
       accountBalance,
       totalProfit,
-      reservedProfit
+      reservedProfit,
+      totalInvestment
     }`,
     { userId }
   );
@@ -22,9 +24,12 @@ export const getDashboardStatsController = asyncHandler(async (req, res) => {
     return sendResponse(res, false, "User not found", 404);
   }
 
-  const availableProfit =
-    (userData.totalProfit || 0) - (userData.reservedProfit || 0);
+  const totalProfit = Number(userData.totalProfit || 0);
+  const reservedProfit = Number(userData.reservedProfit || 0);
 
+  const availableProfit = totalProfit - reservedProfit;
+
+  // ✅ Only sum successful withdrawals
   const withdrawals = await client.fetch(
     `*[_type == "withdrawal" && user._ref == $userId && status == "successful"]{
       amount
@@ -33,26 +38,25 @@ export const getDashboardStatsController = asyncHandler(async (req, res) => {
   );
 
   const totalWithdrawalAmount = withdrawals.reduce(
-    (sum, w) => sum + (w.amount || 0),
+    (sum, w) => sum + (Number(w.amount) || 0),
     0
   );
 
-  const investments = await client.fetch(
-    `*[_type == "userInvestment" && user._ref == $userId]{
-      amount
-    }`,
-    { userId }
-  );
+  return sendResponse(
+    res,
+    true,
+    "Dashboard statistics fetched successfully",
+    200,
+    {
+      walletBalance: Number(userData.accountBalance || 0),
 
-  const totalInvestmentAmount = investments.reduce(
-    (sum, i) => sum + (i.amount || 0),
-    0
-  );
+      totalInvestment: Number(userData.totalInvestment || 0),
 
-  return sendResponse(res, true, "Dashboard statistics fetched successfully", 200, {
-    userDeposit: userData.accountBalance || 0,
-    availableProfit,
-    totalWithdrawalAmount,
-    totalInvestmentAmount,
-  });
+      totalProfit,
+
+      availableProfit,
+
+      totalWithdrawalAmount,
+    }
+  );
 });

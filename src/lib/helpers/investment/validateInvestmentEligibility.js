@@ -12,6 +12,7 @@ export async function validateInvestmentEligibility(
   const max = Number(plan.maxDeposit);
   const amt = Number(amount);
 
+  // 💰 Balance check
   if (balance < amt) {
     return {
       success: false,
@@ -20,6 +21,7 @@ export async function validateInvestmentEligibility(
     };
   }
 
+  // 📊 Plan limits check
   if (amt < min || amt > max) {
     return {
       success: false,
@@ -28,6 +30,7 @@ export async function validateInvestmentEligibility(
     };
   }
 
+  // 🚫 Prevent duplicate active investment in same plan
   const existingInvestment = await client.fetch(
     `*[_type == "userInvestment"
       && user._ref == $userId

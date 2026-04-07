@@ -2,21 +2,18 @@ import { client } from "../../sanity.js";
 import { v4 as uuid } from "uuid";
 
 export async function createInvestmentRecord(
-  user,
-  plan,
   userId,
+  plan,
   planId,
   amount
 ) {
   try {
     const now = new Date();
 
-    const contractEnd = new Date();
-    contractEnd.setDate(now.getDate() + plan.contractDuration);
+    const endDate = new Date();
+    endDate.setDate(now.getDate() + Number(plan.contractDuration));
 
     const investmentId = uuid();
-
-    const dailyProfitPercent = Number(plan.dailyProfit || 0);
 
     const newInvestment = {
       _id: investmentId,
@@ -28,35 +25,29 @@ export async function createInvestmentRecord(
       amount: Number(amount),
 
       profitEarned: 0,
+      totalWithdrawn: 0,
 
       status: "active",
 
       startDate: now.toISOString(),
-      endDate: contractEnd.toISOString(),
+      endDate: endDate.toISOString(),
 
-      isLocked: plan.isFixedDeposit,
+      maturityStatus: "locked", // ✅ aligned with schema
+      isFixedDeposit: !!plan.isFixedDeposit, // snapshot
 
-      totalWithdrawn: 0,
-
-      lastCreditedAt: null,
-
+lastCreditedAt: now.toISOString(),
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
 
-    // 🧠 FINANCIAL TRANSACTION (CRITICAL)
     const transaction = client.transaction();
 
-    // 1. Create investment
     transaction.create(newInvestment);
 
-    // 2. Deduct from user balance
     transaction.patch(userId, (patch) =>
       patch
         .dec({ accountBalance: Number(amount) })
-        .inc({
-          totalInvestment: Number(amount),
-        })
+        .inc({ totalInvestment: Number(amount) })
     );
 
     const result = await transaction.commit();
