@@ -8,8 +8,8 @@ export const validateFields = (fields, body) => {
         break;
 case "countryCode":
   if (!body.countryCode) return "Country code is required";
-  if (!/^[A-Z]{2}$/.test(body.countryCode.toUpperCase()))
-    return "Invalid country code";
+  if (!/^\+\d{1,4}$/.test(body.countryCode))
+    return "Invalid country dialing code";
   break;
       case "password":
         if (!body.password) return "Password is required";

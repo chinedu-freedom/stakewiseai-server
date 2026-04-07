@@ -23,7 +23,6 @@ import {
 import { findUserByEmail } from "../lib/findUserByEmail.js";
 
 
-
 export const register = asyncHandler(async (req, res) => {
   const sanitized = sanitizeInput(req.body);
 
@@ -31,46 +30,51 @@ export const register = asyncHandler(async (req, res) => {
     username,
     email,
     phoneNumber,
-    countryCode,
+    countryCode, // optional now
     password,
     referralCode
   } = sanitized;
 
   const normalizedEmail = email?.trim().toLowerCase();
 
-  // ✅ Validate required fields (added countryCode)
   const validationError = validateFields(
     ["username", "email", "phoneNumber", "password"],
     { username, email: normalizedEmail, phoneNumber, password }
   );
 
-  if (!countryCode) {
-    return sendResponse(res, false, "Country code is required", 400);
-  }
-
   if (validationError) {
     return sendResponse(res, false, validationError, 400);
   }
 
-  // ✅ Normalize country code
-  const normalizedCountryCode = countryCode.trim().toUpperCase();
+  let fullPhone;
 
-  // (Optional but recommended)
-  if (!/^[A-Z]{2}$/.test(normalizedCountryCode)) {
-    return sendResponse(res, false, "Invalid country code format", 400);
+  if (phoneNumber.startsWith("+")) {
+    // User already sent full international number
+    fullPhone = phoneNumber;
+  } else {
+    // Require countryCode if phone is local
+    if (!countryCode) {
+      return sendResponse(res, false, "Country code is required", 400);
+    }
+
+    if (!/^\+\d{1,4}$/.test(countryCode.trim())) {
+      return sendResponse(res, false, "Invalid country code format", 400);
+    }
+
+    fullPhone = `${countryCode.trim()}${phoneNumber}`;
   }
 
-  // Validate phone
-  const parsedPhone = parsePhoneNumberFromString(phoneNumber, normalizedCountryCode);
-  // // Validate phone
-  // const parsedPhone = parsePhoneNumberFromString(phoneNumber);
+  const parsedPhone = parsePhoneNumberFromString(fullPhone);
+
   if (!parsedPhone || !parsedPhone.isValid()) {
     return sendResponse(res, false, "Invalid phone number format", 400);
   }
 
   const formattedPhone = parsedPhone.format("E.164");
 
-  // Check duplicates
+  const countryISO = parsedPhone.country; // e.g. "NG"
+  const countryCodeFinal = `+${parsedPhone.countryCallingCode}`; // e.g. "+234"
+
   const existingUser = await client.fetch(
     `*[_type=="user" && (email==$email || phoneNumber==$phone)][0]`,
     { email: normalizedEmail, phone: formattedPhone }
@@ -117,7 +121,6 @@ export const register = asyncHandler(async (req, res) => {
     };
   }
 
-  // 🔐 Token generation
   const rawToken = crypto.randomBytes(32).toString("hex");
 
   const verificationToken = await bcrypt.hash(
@@ -125,26 +128,35 @@ export const register = asyncHandler(async (req, res) => {
     Number(process.env.SALT_ROUNDS) || 10
   );
 
-
   const userData = {
     _type: "user",
     username,
     email: normalizedEmail,
     phoneNumber: formattedPhone,
-    countryCode: normalizedCountryCode,
+
+    countryISO,
+    countryCode: countryCodeFinal,
+
     password: await bcrypt.hash(password, Number(process.env.SALT_ROUNDS) || 10),
+
     referralCode: generateReferralCode(username),
+
     ...(referredBy && { referredBy }),
+
     emailVerified: false,
     accountStatus: "pending",
     role: "user",
+
     verificationToken,
     tokenExpiresAt: addMinutes(new Date(), 10).toISOString(),
+
     totalProfit: 0,
     availableProfit: 0,
     reservedProfit: 0,
     accountBalance: 0,
+
     isDeleted: false,
+
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -178,7 +190,7 @@ export const register = asyncHandler(async (req, res) => {
 export const login = asyncHandler(async (req, res) => {
   const sanitized = sanitizeInput(req.body);
 
-  const { phoneNumber, password, keepMeLoggedIn } = sanitized;
+  const { phoneNumber, countryCode, password, keepMeLoggedIn } = sanitized;
 
   // Validate required fields
   const validationError = validateFields(
@@ -190,15 +202,33 @@ export const login = asyncHandler(async (req, res) => {
     return sendResponse(res, false, validationError, 400);
   }
 
-  // Normalize phone
-  const parsedPhone = parsePhoneNumberFromString(phoneNumber);
+  let parsedPhone;
+
+  if (phoneNumber.startsWith("+")) {
+    parsedPhone = parsePhoneNumberFromString(phoneNumber);
+  }
+
+  else {
+    if (!countryCode) {
+      return sendResponse(res, false, "Country code is required", 400);
+    }
+
+    if (!/^\+\d{1,4}$/.test(countryCode)) {
+      return sendResponse(res, false, "Invalid country code format", 400);
+    }
+
+    // Combine safely
+    const fullNumber = `${countryCode}${phoneNumber}`;
+
+    parsedPhone = parsePhoneNumberFromString(fullNumber);
+  }
+
   if (!parsedPhone || !parsedPhone.isValid()) {
     return sendResponse(res, false, "Invalid phone number", 400);
   }
 
   const formattedPhone = parsedPhone.format("E.164");
 
-  // Find user
   const user = await client.fetch(
     `*[_type=="user" && phoneNumber==$phone][0]`,
     { phone: formattedPhone }
@@ -218,40 +248,35 @@ export const login = asyncHandler(async (req, res) => {
   }
 
   if (user.role !== "user") {
+    return sendResponse(res, false, "Unauthorized access", 403);
+  }
+
+  if (user.accountStatus !== "active") {
+    if (user.accountStatus === "pending") {
+      return sendResponse(
+        res,
+        false,
+        "Your account is pending. Please verify your email.",
+        403
+      );
+    }
+
+    if (user.accountStatus === "suspended") {
+      return sendResponse(
+        res,
+        false,
+        "Your account has been suspended. Please contact support.",
+        403
+      );
+    }
+
     return sendResponse(
       res,
       false,
-      "Unauthorized access",
+      `Your account is ${user.accountStatus}. Please contact support.`,
       403
     );
   }
-
-if (user.accountStatus !== "active") {
-  if (user.accountStatus === "pending") {
-    return sendResponse(
-      res,
-      false,
-      "Your account is pending. Please verify your email.",
-      403
-    );
-  }
-
-  if (user.accountStatus === "suspended") {
-    return sendResponse(
-      res,
-      false,
-      "Your account has been suspended. Please contact support.",
-      403
-    );
-  }
-
-  return sendResponse(
-    res,
-    false,
-    `Your account is ${user.accountStatus}. Please contact support.`,
-    403
-  );
-}
 
   if (!user.emailVerified) {
     const tokenExpired =
@@ -273,10 +298,8 @@ if (user.accountStatus !== "active") {
 
   res.cookie("token", accessToken, {
     httpOnly: true,
-    secure: false,
+    secure: false, // change in production
     sameSite: "lax",
-    // secure: process.env.NODE_ENV === "production",
-    // sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: keepMeLoggedIn ? 86400000 : 3600000,
   });
 

@@ -17,6 +17,7 @@ export const getUserProfileController = asyncHandler(async (req, res) => {
     country,
     state,
     city,
+    countryCode,
     address,
     referralCode,
     referralCount,
