@@ -10,7 +10,9 @@ import withdrawalRoutes from "./routes/withdrawal.routes.js";
 import depositRoutes from "./routes/deposit.routes.js";
 import investmentRoutes from "./routes/user/investment/investment.routes.js";
 import userInvestmentRoutes from "./routes/user/investment/investment.routes.js";
+import vipRoutes from "./routes/vip.routes.js";
 import { startInvestmentScheduler } from "./job/planScheduler.js";
+
 const app = express();
 
 // Security headers
@@ -41,6 +43,7 @@ startInvestmentScheduler();
 app.use("/api/auth", authRoutes);
 app.use("/api/withdrawals", withdrawalRoutes);
 app.use("/api/wallets", walletRoutes);
+app.use("/api/vips", vipRoutes);
 app.use("/api/deposits", depositRoutes);
 app.use("/api/investments", investmentRoutes);
 app.use("/api/users/me/investments", userInvestmentRoutes);

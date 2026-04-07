@@ -14,9 +14,6 @@ const ALLOWED_CRYPTOS = [
   "USDT_ERC20",
 ];
 
-// =========================
-// ADD WALLET
-// =========================
 export const addWalletController = asyncHandler(async (req, res) => {
   const { user } = req;
 
@@ -43,7 +40,6 @@ export const addWalletController = asyncHandler(async (req, res) => {
     return sendResponse(res, false, "Invalid cryptocurrency", 400);
   }
 
-  // ✅ LIMIT CHECK (MAX 5)
   const walletCount = await client.fetch(
     `count(*[_type=="wallet" && user._ref==$userId])`,
     { userId: user.userId }
@@ -58,7 +54,6 @@ export const addWalletController = asyncHandler(async (req, res) => {
     );
   }
 
-  // ✅ STRICT DUPLICATE CHECK
   const existingWallet = await client.fetch(
     `*[_type=="wallet" && user._ref==$userId && crypto==$crypto && walletAddress==$wallet][0]`,
     {
@@ -94,9 +89,6 @@ export const addWalletController = asyncHandler(async (req, res) => {
 });
 
 
-// =========================
-// GET USER WALLETS
-// =========================
 export const getUserWalletsController = asyncHandler(async (req, res) => {
   const { user } = req;
 
@@ -113,9 +105,6 @@ export const getUserWalletsController = asyncHandler(async (req, res) => {
 });
 
 
-// =========================
-// UPDATE WALLET (FULL EDIT)
-// =========================
 export const updateWalletController = asyncHandler(async (req, res) => {
   const { user } = req;
   const { id } = req.params;
@@ -142,9 +131,6 @@ export const updateWalletController = asyncHandler(async (req, res) => {
 
   const updateFields = {};
 
-  // =========================
-  // UPDATE CRYPTO
-  // =========================
   if (crypto) {
     const cryptoType = crypto.toUpperCase();
 
@@ -155,23 +141,14 @@ export const updateWalletController = asyncHandler(async (req, res) => {
     updateFields.crypto = cryptoType;
   }
 
-  // =========================
-  // UPDATE WALLET ADDRESS
-  // =========================
   if (walletAddress) {
     updateFields.walletAddress = walletAddress.trim();
   }
 
-  // =========================
-  // UPDATE LABEL
-  // =========================
   if (typeof label !== "undefined") {
     updateFields.label = label;
   }
 
-  // =========================
-  // DUPLICATE CHECK AFTER UPDATE
-  // =========================
   if (updateFields.crypto || updateFields.walletAddress) {
     const finalCrypto = updateFields.crypto || existingWallet.crypto;
     const finalWallet =
@@ -212,9 +189,6 @@ export const updateWalletController = asyncHandler(async (req, res) => {
 });
 
 
-// =========================
-// DELETE WALLET
-// =========================
 export const deleteWalletController = asyncHandler(async (req, res) => {
   const { user } = req;
   const { id } = req.params;
