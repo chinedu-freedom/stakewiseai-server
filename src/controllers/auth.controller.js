@@ -61,7 +61,9 @@ export const register = asyncHandler(async (req, res) => {
   }
 
   // Validate phone
-  const parsedPhone = parsePhoneNumberFromString(phoneNumber);
+  const parsedPhone = parsePhoneNumberFromString(phoneNumber, normalizedCountryCode);
+  // // Validate phone
+  // const parsedPhone = parsePhoneNumberFromString(phoneNumber);
   if (!parsedPhone || !parsedPhone.isValid()) {
     return sendResponse(res, false, "Invalid phone number format", 400);
   }
@@ -123,38 +125,26 @@ export const register = asyncHandler(async (req, res) => {
     Number(process.env.SALT_ROUNDS) || 10
   );
 
-  // ✅ IMPORTANT: use unique referral generator (if you added it)
-  const uniqueReferralCode = await generateUniqueReferralCode(username, client);
 
   const userData = {
     _type: "user",
     username,
     email: normalizedEmail,
-
-    // ✅ UPDATED
     phoneNumber: formattedPhone,
     countryCode: normalizedCountryCode,
-
     password: await bcrypt.hash(password, Number(process.env.SALT_ROUNDS) || 10),
-
-    referralCode: uniqueReferralCode,
-
+    referralCode: generateReferralCode(username),
     ...(referredBy && { referredBy }),
-
     emailVerified: false,
     accountStatus: "pending",
     role: "user",
-
     verificationToken,
     tokenExpiresAt: addMinutes(new Date(), 10).toISOString(),
-
     totalProfit: 0,
     availableProfit: 0,
     reservedProfit: 0,
     accountBalance: 0,
-
     isDeleted: false,
-
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
