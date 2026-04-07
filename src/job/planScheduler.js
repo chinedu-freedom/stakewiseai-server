@@ -19,7 +19,7 @@ export const startInvestmentScheduler = () => {
           planType,
           amount,
           unitsHeld,
-          user->{ _id, fullName, totalProfit },
+          user->{ _id, userName, totalProfit },
           plan->{
             contractDuration,
             dailyProfit,
@@ -142,7 +142,7 @@ const totalHours =
         }
 
         console.log(
-          `Credited ${profitToCredit.toFixed(2)} to ${user.fullName} (Investment ${_id})`
+          `Credited ${profitToCredit.toFixed(2)} to ${user.userName} (Investment ${_id})`
         );
       }
     } catch (err) {

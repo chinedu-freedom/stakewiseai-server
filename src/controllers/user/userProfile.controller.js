@@ -2,7 +2,7 @@ import { client } from "../../lib/sanity.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { sendResponse } from "../../lib/response.js";
 import { sanitizeInput } from "../../lib/sanitizeInput.js";
-import { logUserActivity } from "../../lib/logUserActivity.js";
+// import { logUserActivity } from "../../lib/logUserActivity.js";
 
 // GET - Fetch logged-in user's details
 export const getUserProfileController = asyncHandler(async (req, res) => {
@@ -12,7 +12,7 @@ export const getUserProfileController = asyncHandler(async (req, res) => {
 
   const query = `*[_type == "user" && role == "user" && _id == $userId][0]{
     _id,
-    fullName,
+    userName,
     email,
     country,
     state,
@@ -52,22 +52,22 @@ export const updateUserProfileController = asyncHandler(async (req, res) => {
   const body = req.body || {};
   const { country, state, city, address } = sanitizeInput(body);
 
-  await logUserActivity(
-    userId,
-    "Profile Update Attempt",
-    "Attempt to update profile information",
-    "pending"
-  );
+  // await logUserActivity(
+  //   userId,
+  //   "Profile Update Attempt",
+  //   "Attempt to update profile information",
+  //   "pending"
+  // );
 
-  if (!country && !state && !city && !address) {
-    await logUserActivity(
-      userId,
-      "Profile Update Failed",
-      "Profile update failed: No fields provided",
-      "failed"
-    );
-    return sendResponse(res, false, "No fields provided to update", 400);
-  }
+  // if (!country && !state && !city && !address) {
+  //   await logUserActivity(
+  //     userId,
+  //     "Profile Update Failed",
+  //     "Profile update failed: No fields provided",
+  //     "failed"
+  //   );
+  //   return sendResponse(res, false, "No fields provided to update", 400);
+  // }
 
   try {
     await client
@@ -81,21 +81,21 @@ export const updateUserProfileController = asyncHandler(async (req, res) => {
       })
       .commit();
 
-    await logUserActivity(
-      userId,
-      "Profile Updated",
-      "User profile updated successfully",
-      "successful"
-    );
+    // await logUserActivity(
+    //   userId,
+    //   "Profile Updated",
+    //   "User profile updated successfully",
+    //   "successful"
+    // );
 
     return sendResponse(res, true, "Profile updated successfully", 200);
   } catch (err) {
-    await logUserActivity(
-      userId,
-      "Profile Update Failed",
-      `Profile update error: ${err.message}`,
-      "failed"
-    );
+    // await logUserActivity(
+    //   userId,
+    //   "Profile Update Failed",
+    //   `Profile update error: ${err.message}`,
+    //   "failed"
+    // );
 
     return sendResponse(res, false, "Failed to update profile", 500, {
       details: err.message,

@@ -6,7 +6,11 @@ export const validateFields = (fields, body) => {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email))
           return "Invalid email format";
         break;
-
+case "countryCode":
+  if (!body.countryCode) return "Country code is required";
+  if (!/^[A-Z]{2}$/.test(body.countryCode.toUpperCase()))
+    return "Invalid country code";
+  break;
       case "password":
         if (!body.password) return "Password is required";
         const trimmed = body.password.trim();

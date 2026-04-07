@@ -5,7 +5,7 @@ import { sanitizeInput } from "../../lib/sanitizeInput.js";
 import { sendResponse } from "../../lib/response.js";
 import { sendPasswordChangeConfirmationEmail } from "../../lib/mailer.js";
 import { validateFields } from "../../lib/validateFields.js";
-import { logUserActivity } from "../../lib/logUserActivity.js";
+// import { logUserActivity } from "../../lib/logUserActivity.js";
 
 // Helper: find active user by ID
 const findUserById = async (userId) => {
@@ -37,13 +37,13 @@ export const changePasswordController = asyncHandler(async (req, res) => {
 
   const isCurrentValid = await comparePasswords(currentPassword, dbUser.password);
   if (!isCurrentValid) {
-    await logUserActivity(userId, "Password Change", "Failed attempt — incorrect current password", "failed");
+    // await logUserActivity(userId, "Password Change", "Failed attempt — incorrect current password", "failed");
     return sendResponse(res, false, "Incorrect current password", 401);
   }
 
   const isSameAsOld = await comparePasswords(newPassword, dbUser.password);
   if (isSameAsOld) {
-    await logUserActivity(userId, "Password Change", "Failed attempt — new password same as old password", "failed");
+    // await logUserActivity(userId, "Password Change", "Failed attempt — new password same as old password", "failed");
     return sendResponse(res, false, "New password must be different from the old password", 400);
   }
 
@@ -55,12 +55,12 @@ export const changePasswordController = asyncHandler(async (req, res) => {
 
     sendPasswordChangeConfirmationEmail(
       dbUser.email,
-      dbUser.fullName?.split(" ")[0] || "dear"
+      dbUser.userName?.split(" ")[0] || "dear"
     ).catch(err => {
     console.error("Failed to send password change email:", err);
   });
 
-  await logUserActivity(userId, "Password Change", "Password updated successfully", "successful");
+  // await logUserActivity(userId, "Password Change", "Password updated successfully", "successful");
 
   return sendResponse(res, true, "Password updated successfully");
 });

@@ -22,14 +22,14 @@ export const getReferralsController = asyncHandler(async (req, res) => {
   const referrals = await client.fetch(
     `*[_type == "user" && referredBy._ref == $userId] | order(_createdAt desc) [${start}...${end}] {
       _id,
-      fullName,
+      userName,
       email,
       accountStatus,
       emailVerified,
       referralCode,
       referredBy->{
         _id,
-        fullName
+        userName
       },
       _createdAt
     }`,

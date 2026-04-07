@@ -27,18 +27,37 @@ import { findUserByEmail } from "../lib/findUserByEmail.js";
 export const register = asyncHandler(async (req, res) => {
   const sanitized = sanitizeInput(req.body);
 
-  const { username, email, phoneNumber, password, referralCode } = sanitized;
+  const {
+    username,
+    email,
+    phoneNumber,
+    countryCode,
+    password,
+    referralCode
+  } = sanitized;
 
   const normalizedEmail = email?.trim().toLowerCase();
 
-  // Validate required fields
+  // ✅ Validate required fields (added countryCode)
   const validationError = validateFields(
     ["username", "email", "phoneNumber", "password"],
     { username, email: normalizedEmail, phoneNumber, password }
   );
 
+  if (!countryCode) {
+    return sendResponse(res, false, "Country code is required", 400);
+  }
+
   if (validationError) {
     return sendResponse(res, false, validationError, 400);
+  }
+
+  // ✅ Normalize country code
+  const normalizedCountryCode = countryCode.trim().toUpperCase();
+
+  // (Optional but recommended)
+  if (!/^[A-Z]{2}$/.test(normalizedCountryCode)) {
+    return sendResponse(res, false, "Invalid country code format", 400);
   }
 
   // Validate phone
@@ -96,42 +115,44 @@ export const register = asyncHandler(async (req, res) => {
     };
   }
 
-  // 🔐 Token generation (bcrypt only - Option A)
+  // 🔐 Token generation
   const rawToken = crypto.randomBytes(32).toString("hex");
-  // const rawToken = randomBytes(32).toString("hex");
+
   const verificationToken = await bcrypt.hash(
     rawToken,
     Number(process.env.SALT_ROUNDS) || 10
   );
 
-  // ✅ Create user data
+  // ✅ IMPORTANT: use unique referral generator (if you added it)
+  const uniqueReferralCode = await generateUniqueReferralCode(username, client);
+
   const userData = {
     _type: "user",
     username,
     email: normalizedEmail,
+
+    // ✅ UPDATED
     phoneNumber: formattedPhone,
+    countryCode: normalizedCountryCode,
+
     password: await bcrypt.hash(password, Number(process.env.SALT_ROUNDS) || 10),
 
-    referralCode: generateReferralCode(username),
+    referralCode: uniqueReferralCode,
 
-    // Only include reference if exists
     ...(referredBy && { referredBy }),
 
     emailVerified: false,
     accountStatus: "pending",
     role: "user",
 
-    // Token
     verificationToken,
     tokenExpiresAt: addMinutes(new Date(), 10).toISOString(),
 
-    // Financial fields
     totalProfit: 0,
     availableProfit: 0,
     reservedProfit: 0,
     accountBalance: 0,
 
-    // Soft delete
     isDeleted: false,
 
     createdAt: new Date().toISOString(),
@@ -140,7 +161,6 @@ export const register = asyncHandler(async (req, res) => {
 
   const newUser = await client.create(userData);
 
-  // Send verification email
   const emailResult = await sendVerificationEmail({
     email: normalizedEmail,
     name: username,
@@ -263,10 +283,10 @@ if (user.accountStatus !== "active") {
 
   res.cookie("token", accessToken, {
     httpOnly: true,
-    // secure: false,
-    // sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: false,
+    sameSite: "lax",
+    // secure: process.env.NODE_ENV === "production",
+    // sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: keepMeLoggedIn ? 86400000 : 3600000,
   });
 

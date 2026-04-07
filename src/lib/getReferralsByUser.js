@@ -5,14 +5,14 @@ export async function getReferralsByUser(userId) {
 
   const query = `*[_type == "user" && referredBy._ref == $userId]{
     _id,
-    fullName,
+    userName,
     email,
     accountStatus,
     emailVerified,
     referralCode,
     referredBy->{
       _id,
-      fullName
+      userName
     },
     _createdAt
   } | order(createdAt desc)`;
