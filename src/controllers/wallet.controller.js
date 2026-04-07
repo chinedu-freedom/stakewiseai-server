@@ -80,7 +80,6 @@ export const addWalletController = asyncHandler(async (req, res) => {
     crypto: cryptoType,
     walletAddress: wallet,
     label: label || "",
-    isDefault: false,
     createdAt: now,
     updatedAt: now,
   });

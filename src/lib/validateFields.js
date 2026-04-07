@@ -11,6 +11,35 @@ case "countryCode":
   if (!/^\+\d{1,4}$/.test(body.countryCode))
     return "Invalid country dialing code";
   break;
+  case "crypto":
+  if (!body.crypto) return "Crypto is required";
+
+  const allowedCryptos = [
+    "BTC_BITCOIN",
+    "BNB_BEP20",
+    "ETH_ERC20",
+    "USDT_TRC20",
+    "USDT_ERC20",
+  ];
+
+  if (!allowedCryptos.includes(body.crypto.toUpperCase())) {
+    return "Invalid cryptocurrency";
+  }
+  break;
+  case "walletAddress":
+  if (!body.walletAddress) return "Wallet address is required";
+
+  const wallet = body.walletAddress.trim();
+
+  if (wallet.length < 10) {
+    return "Wallet address seems too short";
+  }
+
+  // Optional: basic character check
+  if (!/^[a-zA-Z0-9]+$/.test(wallet)) {
+    return "Wallet address contains invalid characters";
+  }
+  break;
       case "password":
         if (!body.password) return "Password is required";
         const trimmed = body.password.trim();
