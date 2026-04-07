@@ -1,24 +1,26 @@
 import { client } from "../lib/sanity.js";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import bcrypt from "bcryptjs";
-import { sendVerificationEmail, sendPasswordResetEmail, sendPasswordResetConfirmationEmail } from "../lib/mailer.js";
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendPasswordResetConfirmationEmail
+} from "../lib/mailer.js";
 import { generateReferralCode } from "../lib/generateReferralCode.js";
 import { validateFields } from "../lib/validateFields.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { sanitizeInput } from "../lib/sanitizeInput.js";
 import { sendResponse } from "../lib/response.js";
-import { findUserByEmail } from "../lib/findUserByEmail.js";
-import {
-  comparePasswords,
-  generateToken,
-  hashPassword,
-  hashOtp,
-  verifyOtp,
-} from "../lib/auth.js";
 import { addMinutes, isAfter } from "date-fns";
-import { createHash, randomBytes } from "crypto";
 import crypto from "crypto";
-
+import {
+  hashOtp,
+  comparePasswords,
+  verifyOtp,
+  generateToken,
+  hashPassword
+} from "../lib/auth.js";
+import { findUserByEmail } from "../lib/findUserByEmail.js";
 
 
 
@@ -39,7 +41,7 @@ export const register = asyncHandler(async (req, res) => {
     return sendResponse(res, false, validationError, 400);
   }
 
-  // Validate & format phone
+  // Validate phone
   const parsedPhone = parsePhoneNumberFromString(phoneNumber);
   if (!parsedPhone || !parsedPhone.isValid()) {
     return sendResponse(res, false, "Invalid phone number format", 400);
@@ -47,7 +49,7 @@ export const register = asyncHandler(async (req, res) => {
 
   const formattedPhone = parsedPhone.format("E.164");
 
-  // Prevent duplicate email OR phone
+  // Check duplicates
   const existingUser = await client.fetch(
     `*[_type=="user" && (email==$email || phoneNumber==$phone)][0]`,
     { email: normalizedEmail, phone: formattedPhone }
@@ -94,36 +96,51 @@ export const register = asyncHandler(async (req, res) => {
     };
   }
 
-  // Token generation
-  const rawToken = randomBytes(32).toString("hex");
-  const tokenDigest = createHash("sha256").update(rawToken).digest("hex");
-
+  // 🔐 Token generation (bcrypt only - Option A)
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  // const rawToken = randomBytes(32).toString("hex");
   const verificationToken = await bcrypt.hash(
     rawToken,
     Number(process.env.SALT_ROUNDS) || 10
   );
 
-  // Create user
-  const newUser = await client.create({
+  // ✅ Create user data
+  const userData = {
     _type: "user",
     username,
     email: normalizedEmail,
     phoneNumber: formattedPhone,
-    password: await hashPassword(password),
+    password: await bcrypt.hash(password, Number(process.env.SALT_ROUNDS) || 10),
+
     referralCode: generateReferralCode(username),
-    referredBy,
-    referrerId: referralCode || null,
+
+    // Only include reference if exists
+    ...(referredBy && { referredBy }),
+
     emailVerified: false,
     accountStatus: "pending",
-    tokenDigest,
-    verificationToken,
     role: "user",
-    tokenExpiresAt: addMinutes(new Date(), 10).toISOString(),
-    createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-  });
 
-  // Send email
+    // Token
+    verificationToken,
+    tokenExpiresAt: addMinutes(new Date(), 10).toISOString(),
+
+    // Financial fields
+    totalProfit: 0,
+    availableProfit: 0,
+    reservedProfit: 0,
+    accountBalance: 0,
+
+    // Soft delete
+    isDeleted: false,
+
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const newUser = await client.create(userData);
+
+  // Send verification email
   const emailResult = await sendVerificationEmail({
     email: normalizedEmail,
     name: username,
@@ -310,8 +327,8 @@ export const forgotPassword = asyncHandler(async (req, res) => {
     );
   }
 
-  // Generate secure OTP (4-digit)
-  const otp = crypto.randomInt(1000, 10000).toString();
+  // Generate secure OTP (6-digit)
+  const otp = crypto.randomInt(100000, 1000000).toString();
 
   const hashedOtp = await hashOtp(otp);
   const otpExpiry = addMinutes(new Date(), 10).toISOString();
@@ -379,36 +396,29 @@ export const resendVerification = asyncHandler(async (req, res) => {
   }
 
   // Rate limit resend
-  if (user.tokenExpiresAt && isAfter(new Date(user.tokenExpiresAt), new Date())) {
-    return sendResponse(
-      res,
-      true,
-      "If the email exists, a verification email will be sent",
-      200
-    );
-  }
+const isTokenStillValid =
+  user.tokenExpiresAt && isAfter(new Date(user.tokenExpiresAt), new Date());
+
+if (isTokenStillValid) {
+  return sendResponse(res, true, "If the email exists, a verification email will be sent", 200);
+}
 
   // Generate new token
-  const token = randomBytes(32).toString("hex");
-  const tokenDigest = createHash("sha256").update(token).digest("hex");
+  const token = crypto.randomBytes(32).toString("hex");
 
-  const verificationToken = await bcrypt.hash(
-    token,
-    parseInt(process.env.SALT_ROUNDS) || 10
-  );
+const verificationToken = await bcrypt.hash(
+  token,
+  parseInt(process.env.SALT_ROUNDS) || 10
+);
 
-  const tokenExpiresAt = addMinutes(new Date(), 15).toISOString();
+const tokenExpiresAt = addMinutes(new Date(), 15).toISOString();
 
-  await client
-    .patch(user._id)
-    .set({
-      tokenDigest,
-      verificationToken,
-      tokenExpiresAt,
-      accountStatus: "pending",
-      _updatedAt: new Date().toISOString(),
-    })
-    .commit();
+await client.patch(user._id).set({
+  verificationToken,
+  tokenExpiresAt,
+  accountStatus: "pending",
+  _updatedAt: new Date().toISOString(),
+}).commit();
 
   // Send email (non-blocking but safe)
   sendVerificationEmail({
@@ -498,70 +508,40 @@ export const resetPassword = asyncHandler(async (req, res) => {
 });
 
 export const verifyEmail = asyncHandler(async (req, res) => {
-  const rawToken = sanitizeInput(req.query.token)?.trim();
+  const { token, email } = sanitizeInput(req.query);
 
-  if (!rawToken) {
-    return sendResponse(res, false, "Verification token is required", 400);
+  if (!token || !email) {
+    return sendResponse(res, false, "Invalid request", 400);
   }
 
-  // Create digest for lookup
-  const digest = crypto.createHash("sha256").update(rawToken).digest("hex");
+  const user = await findUserByEmail(email);
 
-  const user = await client.fetch(
-    `*[_type == "user" && tokenDigest == $digest && !emailVerified][0]`,
-    { digest }
-  );
-
-  if (!user) {
-    return sendResponse(
-      res,
-      false,
-      "Invalid or expired verification token",
-      400
-    );
+  if (!user || !user.verificationToken) {
+    return sendResponse(res, false, "Invalid or expired verification token", 400);
   }
 
-  // Compare hashed token
-  const tokenMatch = await bcrypt.compare(
-    rawToken,
-    user.verificationToken
-  );
+  // ⛔ CHECK EXPIRY FIRST (prevents unnecessary bcrypt work)
+  if (user.tokenExpiresAt && new Date() > new Date(user.tokenExpiresAt)) {
+    return sendResponse(res, false, "Verification token has expired", 400);
+  }
+
+  const tokenMatch = await bcrypt.compare(token, user.verificationToken);
 
   if (!tokenMatch) {
-    return sendResponse(
-      res,
-      false,
-      "Invalid or expired verification token",
-      400
-    );
+    return sendResponse(res, false, "Invalid or expired verification token", 400);
   }
 
-  // Check expiry
-  if (
-    user.tokenExpiresAt &&
-    new Date() > new Date(user.tokenExpiresAt)
-  ) {
-    return sendResponse(
-      res,
-      false,
-      "Verification token has expired",
-      400
-    );
-  }
-
-  // Activate user + give welcome bonus
   const updatedUser = await client
     .patch(user._id)
     .set({
       emailVerified: true,
       accountStatus: "active",
       verificationToken: null,
-      tokenDigest: null,
       tokenExpiresAt: null,
       _updatedAt: new Date().toISOString(),
     })
     .setIfMissing({ accountBalance: 0 })
-    .inc({ accountBalance: 10 }) // welcome bonus
+    .inc({ accountBalance: 10 })
     .commit();
 
   return sendResponse(res, true, "Email verified successfully!", 200, {
@@ -570,7 +550,6 @@ export const verifyEmail = asyncHandler(async (req, res) => {
     accountBalance: updatedUser.accountBalance,
   });
 });
-
 
 export const verifyUserOtp = asyncHandler(async (req, res) => {
   const { email, otp } = sanitizeInput(req.body);
@@ -581,23 +560,30 @@ export const verifyUserOtp = asyncHandler(async (req, res) => {
 
   const user = await findUserByEmail(email);
 
-  // Generic error message for security
   const genericErrorMsg = "Invalid credentials";
 
-  if (!user || !user.otp) {
+  if (!user || !user.otp || !user.otpExpiry) {
+    return sendResponse(res, false, genericErrorMsg, 400);
+  }
+
+  // ⛔ CHECK EXPIRY FIRST
+  if (new Date(user.otpExpiry) < new Date()) {
     return sendResponse(res, false, genericErrorMsg, 400);
   }
 
   const isOtpValid = await verifyOtp(otp, user.otp);
 
-  if (!isOtpValid || !user.otpExpiry || new Date(user.otpExpiry) < new Date()) {
+  if (!isOtpValid) {
     return sendResponse(res, false, genericErrorMsg, 400);
   }
 
-  // Mark OTP as verified and remove it to prevent reuse
   await client
     .patch(user._id)
-    .set({ otpVerified: true, otp: null, otpExpiry: null })
+    .set({
+      otpVerified: true,
+      otp: null,
+      otpExpiry: null,
+    })
     .commit();
 
   return sendResponse(res, true, "OTP verified successfully");

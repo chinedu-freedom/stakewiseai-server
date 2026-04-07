@@ -21,12 +21,22 @@ export const validateFields = (fields, body) => {
           return "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character";
         break;
 
-      case "username":
-        if (!body.username)
-          return "Username is required";
-        if (!/^[a-zA-Z\s.'-]+$/.test(body.username.trim()))
-          return "Username contains invalid characters";
-        break;
+   case "username":
+  if (!body.username) return "Username is required";
+
+  const username = body.username.trim();
+
+  if (username.length < 3 || username.length > 20) {
+    return "Username must be between 3 and 20 characters";
+  }
+if (/[._]{2,}/.test(username)) {
+  return "Username cannot contain consecutive special characters";
+}
+  if (!/^[a-zA-Z0-9](?:[a-zA-Z0-9._]{1,18}[a-zA-Z0-9])?$/.test(username)) {
+    return "Username can only contain letters, numbers, dots, and underscores, and cannot start or end with special characters";
+  }
+
+  break;
 
       case "phoneNumber":
         if (!body.phoneNumber) return "Phone number is required";
