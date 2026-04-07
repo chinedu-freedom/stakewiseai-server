@@ -1,9 +1,10 @@
-import { asyncHandler } from "../../../lib/asyncHandler.js";
-import { sendResponse } from "../../../lib/response.js";
-import { getUserAndPlan } from "../../../lib/helpers/cryptoInvestment/getUserAndPlan.js";
-import { validateInvestmentEligibility } from "../../../lib/helpers/cryptoInvestment/validateInvestmentEligibility.js";
-import { createInvestmentRecord } from "../../../lib/helpers/cryptoInvestment/createInvestmentRecord.js";
-import { validateCryptoInvestmentInput } from "../../../lib/helpers/cryptoInvestment/validateCryptoInvestment.js";
+import { asyncHandler } from "../lib/asyncHandler.js";
+import { sendResponse } from "../lib/response.js";
+import { getUserAndPlan } from "../lib/helpers/investment/getUserAndPlan.js";
+import { validateInvestmentEligibility } from "../lib/helpers/investment/validateInvestmentEligibility.js";
+import { createInvestmentRecord } from "../lib/helpers/investment/createInvestmentRecord.js";
+import { validateInvestmentInput } from "../lib/helpers/investment/validateInvestmentInput.js";
+
 
 export const createCryptoInvestmentHandler = asyncHandler(async (req, res) => {
   const userId = req.user?.userId;
@@ -13,7 +14,7 @@ export const createCryptoInvestmentHandler = asyncHandler(async (req, res) => {
   }
 
   // Validate input
-  const inputValidation = validateCryptoInvestmentInput(req.body);
+  const inputValidation = validateInvestmentInput(req.body);
 
   if (!inputValidation.success) {
     return sendResponse(
@@ -38,15 +39,13 @@ export const createCryptoInvestmentHandler = asyncHandler(async (req, res) => {
     );
   }
 
-  const { user: userData, plan } = userPlanResponse.data;
+  const { user, plan } = userPlanResponse.data;
 
   // Eligibility check
   const eligibilityResponse = await validateInvestmentEligibility(
-    userData,
+    user,
     plan,
-    amount,
-    userId,
-    planId
+    amount
   );
 
   if (!eligibilityResponse.success) {
@@ -60,31 +59,27 @@ export const createCryptoInvestmentHandler = asyncHandler(async (req, res) => {
 
   // Create investment
   const investmentResponse = await createInvestmentRecord(
+    user,
+    plan,
     userId,
     planId,
-    "crypto",
-    amount,
-    plan.contractDuration
+    amount
   );
 
   if (investmentResponse.success) {
     return sendResponse(
       res,
       true,
-      "Crypto investment submitted successfully",
+      "Investment created successfully",
       201,
       investmentResponse.data
     );
   }
 
-  // Failure case
   return sendResponse(
     res,
     false,
     investmentResponse.error || "Failed to create investment",
-    500,
-    investmentResponse.error
-      ? { details: investmentResponse.error }
-      : undefined
+    500
   );
 });

@@ -2,34 +2,27 @@ import cron from "node-cron";
 import { client } from "../lib/sanity.js";
 
 export const startInvestmentScheduler = () => {
-  cron.schedule("0 * * * *", async () => {
-    console.log("Running investment profit scheduler...");
+  // Runs every 24 hours (midnight)
+  cron.schedule("0 0 * * *", async () => {
+    console.log("Running DAILY investment profit scheduler...");
 
     try {
       const now = new Date();
 
-      const activeInvestments = await client.fetch(
-        `*[_type=="userInvestment" && status=="active"]{
+      const activeInvestments = await client.fetch(`
+        *[_type=="userInvestment" && status=="active"]{
           _id,
+          amount,
           profitEarned,
-          expectedROI,
+          lastCreditedAt,
           startDate,
           endDate,
-          lastCreditedAt,
-          planType,
-          amount,
-          unitsHeld,
-          user->{ _id, userName, totalProfit },
-          plan->{
-            contractDuration,
-            dailyProfit,
-            changePercent,
-            currentPrice,
-            roiEstimate,
-            interestAmount
-          }
-        }`
-      );
+          isFixedDeposit,
+          maturityStatus,
+          user->{_id},
+          plan->{ dailyProfit }
+        }
+      `);
 
       for (const inv of activeInvestments) {
         const {
@@ -37,13 +30,11 @@ export const startInvestmentScheduler = () => {
           user,
           plan,
           amount,
-          unitsHeld,
-          expectedROI,
           profitEarned = 0,
+          lastCreditedAt,
           startDate,
           endDate,
-          lastCreditedAt,
-          planType,
+          isFixedDeposit,
         } = inv;
 
         if (!user || !plan) continue;
@@ -56,97 +47,63 @@ export const startInvestmentScheduler = () => {
           (now - lastCredit) / (1000 * 60 * 60)
         );
 
-        if (hoursElapsed < 1) continue;
+        // Only run once every 24h
+        if (hoursElapsed < 24) continue;
 
-        let hourlyProfit = 0;
-const totalHours =
-  (plan.contractDuration || 1) * 24;
+        // 🔢 DAILY PROFIT CALCULATION
+        const dailyProfit =
+          ((Number(amount) || 0) * (Number(plan.dailyProfit) || 0)) / 100;
 
-        switch (planType) {
-          case "crypto":
-            hourlyProfit =
-              ((amount || 0) * (plan.dailyProfit || 0)) / 100 / 24;
-            break;
+        const isMatured = now >= new Date(endDate);
 
-          case "realEstate":
-            // hourlyProfit =
-            //   ((amount || 0) * (plan.roiEstimate || 0)) /
-            //   100 /
-            //   ((plan.contractDuration || 1) * 24);
-            hourlyProfit =
-  ((amount || 0) * (plan.roiEstimate || 0)) /
-  100 /
-  totalHours;
-            break;
+        // 🔄 Build dynamic profit updates
+        let userUpdate = {
+          totalProfit: dailyProfit,
+        };
 
-          case "stockBond":
-            const totalPlanProfit =
-              (unitsHeld || 0) *
-              (plan.currentPrice || 0) *
-              ((plan.changePercent || 0) / 100);
-
-            hourlyProfit =
-              totalPlanProfit /
-              ((plan.contractDuration || 1) * 24);
-            break;
-
-          case "loan":
-            hourlyProfit =
-              (plan.interestAmount || 0) /
-              ((plan.contractDuration || 1) * 24);
-            break;
-
-          default:
-            continue;
+        if (isFixedDeposit) {
+          if (isMatured) {
+            // ✅ Once matured → move to available
+            userUpdate.availableProfit = dailyProfit;
+          } else {
+            // 🔒 Still locked → keep in reserved
+            userUpdate.reservedProfit = dailyProfit;
+          }
+        } else {
+          // ✅ Flexible → always available
+          userUpdate.availableProfit = dailyProfit;
         }
 
-        let profitToCredit =
-          Math.round(hourlyProfit * hoursElapsed * 100) / 100;
-
-        const maxProfit = expectedROI || Infinity;
-        const remainingProfit = maxProfit - profitEarned;
-
-        if (remainingProfit <= 0) {
-          await client.patch(_id).set({ status: "completed" }).commit();
-          continue;
-        }
-
-        if (profitToCredit > remainingProfit) {
-          profitToCredit = remainingProfit;
-        }
-
-        const newLastCredit = new Date(
-          lastCredit.getTime() + hoursElapsed * 60 * 60 * 1000
-        ).toISOString();
-
-        // 🔒 ATOMIC CREDIT
+        // 💰 ATOMIC UPDATE
         await client
           .transaction()
-          .patch(user._id, {
-            setIfMissing: { totalProfit: 0 },
-            inc: { totalProfit: profitToCredit },
-          })
-          .patch(_id, {
-            setIfMissing: { profitEarned: 0 },
-            inc: { profitEarned: profitToCredit },
-            set: { lastCreditedAt: newLastCredit },
-          })
+          .patch(_id, (patch) =>
+            patch
+              .inc({ profitEarned: dailyProfit })
+              .set({ lastCreditedAt: now.toISOString() })
+          )
+          .patch(user._id, (patch) =>
+            patch.inc(userUpdate)
+          )
           .commit();
 
-        // Final completion check
-        if (
-          profitEarned + profitToCredit >= maxProfit ||
-          now >= new Date(endDate)
-        ) {
-          await client.patch(_id).set({ status: "completed" }).commit();
+        // 🏁 HANDLE MATURITY
+        if (isMatured) {
+          await client
+            .patch(_id)
+            .set({
+              status: "completed",
+              maturityStatus: "matured",
+            })
+            .commit();
         }
 
         console.log(
-          `Credited ${profitToCredit.toFixed(2)} to ${user.userName} (Investment ${_id})`
+          `Credited ${dailyProfit.toFixed(2)} to user ${user._id} (Investment ${_id})`
         );
       }
     } catch (err) {
-      console.error("Investment profit scheduler error:", err);
+      console.error("Investment scheduler error:", err);
     }
   });
 };

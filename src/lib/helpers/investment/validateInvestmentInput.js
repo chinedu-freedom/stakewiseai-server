@@ -1,10 +1,10 @@
-export function validateCryptoInvestmentInput(body) {
+export function validateInvestmentInput(body) {
   const { planId, amount } = body || {};
 
   if (!planId || typeof planId !== "string") {
     return {
       success: false,
-      message: "Plan ID is required and must be a valid string",
+      message: "Plan ID is required",
       status: 400,
     };
   }

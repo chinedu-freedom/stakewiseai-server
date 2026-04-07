@@ -19,23 +19,22 @@ export async function createWithdrawal({
     amount,
     walletAddress: wallet,
     status: "pending",
-     requestedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    requestedAt: now,
+    updatedAt: now,
   };
 
-  // 🔒 Atomic transaction
   await client
     .transaction()
-    // 1️⃣ Reserve profit safely
     .patch(userId, {
       setIfMissing: { reservedProfit: 0 },
       inc: { reservedProfit: amount },
     })
-    // 2️⃣ Create withdrawal record
     .create(newWithdrawal)
     .commit();
 
-  // Notify user (non-blocking)
+  // Fix undefined variable bug
+  const crypto = "USDT";
+
   sendWithdrawalNotificationEmail({
     email: userData.email,
     name: userData.username || "User",
@@ -45,11 +44,8 @@ export async function createWithdrawal({
     status: "Pending",
     date: now,
     isAdmin: false,
-  }).catch((err) => {
-    console.error("USER_WITHDRAWAL_NOTIFICATION_ERROR:", err);
-  });
+  }).catch(console.error);
 
-  // Notify admin (non-blocking)
   sendWithdrawalNotificationEmail({
     email: process.env.ADMIN_EMAIL,
     name: "Admin",
@@ -61,9 +57,7 @@ export async function createWithdrawal({
     isAdmin: true,
     userName: userData.username,
     userEmail: userData.email,
-  }).catch((err) => {
-    console.error("ADMIN_WITHDRAWAL_NOTIFICATION_ERROR:", err);
-  });
+  }).catch(console.error);
 
   return {
     _id: withdrawalId,
