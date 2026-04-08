@@ -29,7 +29,7 @@ export const register = asyncHandler(async (req, res) => {
     username,
     email,
     phoneNumber,
-    countryCode, // optional now
+    countryCode,
     password,
     referralCode
   } = sanitized;
@@ -48,10 +48,8 @@ export const register = asyncHandler(async (req, res) => {
   let fullPhone;
 
   if (phoneNumber.startsWith("+")) {
-    // User already sent full international number
     fullPhone = phoneNumber;
   } else {
-    // Require countryCode if phone is local
     if (!countryCode) {
       return sendResponse(res, false, "Country code is required", 400);
     }
@@ -70,9 +68,8 @@ export const register = asyncHandler(async (req, res) => {
   }
 
   const formattedPhone = parsedPhone.format("E.164");
-
-  const countryISO = parsedPhone.country; // e.g. "NG"
-  const countryCodeFinal = `+${parsedPhone.countryCallingCode}`; // e.g. "+234"
+  const countryISO = parsedPhone.country;
+  const countryCodeFinal = `+${parsedPhone.countryCallingCode}`;
 
   const existingUser = await client.fetch(
     `*[_type=="user" && (email==$email || phoneNumber==$phone)][0]`,
@@ -90,10 +87,18 @@ export const register = asyncHandler(async (req, res) => {
 
   let referredBy = null;
   let referrerInfo = null;
+  let referralLevel = 0;
 
   if (referralCode) {
     const ref = await client.fetch(
-      `*[_type=="user" && referralCode==$code][0]`,
+      `*[_type=="user" && referralCode==$code][0]{
+        _id,
+        username,
+        email,
+        referralCode,
+        accountStatus,
+        referralLevel
+      }`,
       { code: referralCode.toUpperCase() }
     );
 
@@ -112,12 +117,22 @@ export const register = asyncHandler(async (req, res) => {
 
     referredBy = { _ref: ref._id, _type: "reference" };
 
+    // ✅ Set level depth
+    referralLevel = (ref.referralLevel || 0) + 1;
+
     referrerInfo = {
       _id: ref._id,
       username: ref.username,
       email: ref.email,
       referralCode: ref.referralCode,
     };
+
+    // ✅ Increment referrer count (non-blocking safe update)
+    client
+      .patch(ref._id)
+      .inc({ referralCount: 1 })
+      .commit()
+      .catch(console.error);
   }
 
   const rawToken = crypto.randomBytes(32).toString("hex");
@@ -141,6 +156,9 @@ export const register = asyncHandler(async (req, res) => {
     referralCode: generateReferralCode(username),
 
     ...(referredBy && { referredBy }),
+
+    // ✅ NEW FIELD
+    referralLevel,
 
     emailVerified: false,
     accountStatus: "pending",

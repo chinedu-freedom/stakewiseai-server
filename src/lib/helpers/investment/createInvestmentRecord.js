@@ -32,23 +32,76 @@ export async function createInvestmentRecord(
       startDate: now.toISOString(),
       endDate: endDate.toISOString(),
 
-      maturityStatus: "locked", // ✅ aligned with schema
-      isFixedDeposit: !!plan.isFixedDeposit, // snapshot
+      maturityStatus: "locked",
+      isFixedDeposit: !!plan.isFixedDeposit,
 
-lastCreditedAt: now.toISOString(),
+      lastCreditedAt: now.toISOString(),
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
 
     const transaction = client.transaction();
 
+    // ✅ 1. Create investment
     transaction.create(newInvestment);
 
+    // ✅ 2. Deduct user balance
     transaction.patch(userId, (patch) =>
       patch
         .dec({ accountBalance: Number(amount) })
         .inc({ totalInvestment: Number(amount) })
     );
+
+    /**
+     * 🔥 3. REFERRAL PAYOUT LOGIC
+     */
+    const referralChain = await client.fetch(
+      `*[_type == "user" && _id == $userId][0]{
+        referredBy->{
+          _id,
+          referredBy->{
+            _id,
+            referredBy->{
+              _id
+            }
+          }
+        }
+      }`,
+      { userId }
+    );
+
+    const level1 = referralChain?.referredBy;
+    const level2 = level1?.referredBy;
+    const level3 = level2?.referredBy;
+
+    const payouts = [
+      { user: level1, percent: 0.10, level: 1 },
+      { user: level2, percent: 0.05, level: 2 },
+      { user: level3, percent: 0.02, level: 3 },
+    ];
+
+    for (const p of payouts) {
+      if (!p.user?._id) continue;
+
+      const rewardAmount = Number(amount) * p.percent;
+
+      // ✅ Add money to referrer
+      transaction.patch(p.user._id, (patch) =>
+        patch
+          .inc({ accountBalance: rewardAmount })
+          .inc({ totalProfit: rewardAmount })
+          .append("referralRewards", [
+            {
+              _key: uuid(),
+              date: now.toISOString(),
+              referredUser: { _type: "reference", _ref: userId },
+              amount: rewardAmount,
+              level: p.level,
+              status: "approved",
+            },
+          ])
+      );
+    }
 
     const result = await transaction.commit();
 
