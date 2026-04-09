@@ -15,6 +15,7 @@ export const getUserProfileController = asyncHandler(async (req, res) => {
     username,
     email,
     country,
+    image,
     state,
     city,
     countryCode,
