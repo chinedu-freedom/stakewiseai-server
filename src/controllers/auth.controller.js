@@ -315,8 +315,8 @@ export const login = asyncHandler(async (req, res) => {
 
   res.cookie("token", accessToken, {
     httpOnly: true,
-    secure: false, // change in production
-    sameSite: "lax",
+    secure: true, // change in production
+    sameSite: "none",
     maxAge: keepMeLoggedIn ? 86400000 : 3600000,
   });
 
