@@ -168,7 +168,6 @@ export const register = asyncHandler(async (req, res) => {
     tokenExpiresAt: addMinutes(new Date(), 10).toISOString(),
 
     totalProfit: 0,
-    availableProfit: 0,
     reservedProfit: 0,
     accountBalance: 0,
 
