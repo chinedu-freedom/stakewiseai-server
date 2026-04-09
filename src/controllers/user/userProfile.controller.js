@@ -12,7 +12,7 @@ export const getUserProfileController = asyncHandler(async (req, res) => {
 
   const query = `*[_type == "user" && role == "user" && _id == $userId][0]{
     _id,
-    userName,
+    username,
     email,
     country,
     state,
