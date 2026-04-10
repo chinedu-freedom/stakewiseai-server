@@ -6,7 +6,7 @@ import {
   buildPaginationMeta,
 } from "../lib/pagination.js";
 
-export const getCryptoPlansHandler = asyncHandler(async (req, res) => {
+export const getPlansHandler = asyncHandler(async (req, res) => {
   const search = req.query.search?.trim();
   const { page, limit, start, end } = getPaginationParams(req);
 

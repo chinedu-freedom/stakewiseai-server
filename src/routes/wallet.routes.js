@@ -14,11 +14,6 @@ router.get("/", withAuth, getUserWalletsController);
 router.patch("/:id", withAuth, updateWalletController);
 router.delete("/:id", withAuth, deleteWalletController);
 
-// router.route("/")
-// .post(withAuth, addWalletController)
-//   .get(withAuth, getUserWalletsController);
-// router.route("/:id")
-//   .patch(withAuth, updateWalletController)
-//   .delete(withAuth, deleteWalletController);
+
 
 export default router;

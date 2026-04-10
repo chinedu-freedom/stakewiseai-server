@@ -1,6 +1,6 @@
 import express from "express";
 import { withAuth } from "../../middlewares/auth/authGuard.js";
-import { createCryptoInvestmentHandler } from "../../controllers/investment.controller.js";
+import { createInvestmentHandler } from "../../controllers/investment.controller.js";
 // import { fetchAllInvestmentsController } from "../../controllers/investment.controller.js";
 
 
@@ -10,6 +10,6 @@ const router = express.Router();
 router.post(
   "/crypto",
   withAuth,
-  createCryptoInvestmentHandler
+  createInvestmentHandler
 );
 export default router;

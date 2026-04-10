@@ -6,7 +6,7 @@ import { createInvestmentRecord } from "../lib/helpers/investment/createInvestme
 import { validateInvestmentInput } from "../lib/helpers/investment/validateInvestmentInput.js";
 
 
-export const createCryptoInvestmentHandler = asyncHandler(async (req, res) => {
+export const createInvestmentHandler = asyncHandler(async (req, res) => {
   const userId = req.user?.userId;
 
   if (!userId) {

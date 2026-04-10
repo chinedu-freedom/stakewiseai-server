@@ -47,7 +47,7 @@ app.use("/api/wallets", walletRoutes);
 app.use("/api/vips", vipRoutes);
 app.use("/api/deposits", depositRoutes);
 app.use("/api/investments", investmentRoutes);
-app.use("/api/users/me/investments", userInvestmentRoutes);
+app.use("/api/users/investments", userInvestmentRoutes);
 app.use("/api/users", userRoutes);
 
 // 404 handler

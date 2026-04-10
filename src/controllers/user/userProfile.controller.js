@@ -1,8 +1,7 @@
 import { client } from "../../lib/sanity.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { sendResponse } from "../../lib/response.js";
-import { sanitizeInput } from "../../lib/sanitizeInput.js";
-// import { logUserActivity } from "../../lib/logUserActivity.js";
+import { uploadImage } from "../../lib/uploadImage.js";
 
 // GET - Fetch logged-in user's details
 export const getUserProfileController = asyncHandler(async (req, res) => {
@@ -45,61 +44,37 @@ export const getUserProfileController = asyncHandler(async (req, res) => {
 });
 
 
-// PATCH - Update user profile info (LOGGING REQUIRED)
+
+
 export const updateUserProfileController = asyncHandler(async (req, res) => {
   const userId = req.user?.userId;
 
-  if (!userId) return sendResponse(res, false, "Unauthorized: Please log in", 401);
+  if (!userId) {
+    return sendResponse(res, false, "Unauthorized: Please log in", 401);
+  }
 
-  const body = req.body || {};
-  const { country, state, city, address } = sanitizeInput(body);
+  const file = req.file;
 
-  // await logUserActivity(
-  //   userId,
-  //   "Profile Update Attempt",
-  //   "Attempt to update profile information",
-  //   "pending"
-  // );
-
-  // if (!country && !state && !city && !address) {
-  //   await logUserActivity(
-  //     userId,
-  //     "Profile Update Failed",
-  //     "Profile update failed: No fields provided",
-  //     "failed"
-  //   );
-  //   return sendResponse(res, false, "No fields provided to update", 400);
-  // }
+  if (!file) {
+    return sendResponse(res, false, "Image file is required", 400);
+  }
 
   try {
-    await client
+    const image = await uploadImage(file);
+
+    const updatedUser = await client
       .patch(userId)
       .set({
-        ...(country && { country }),
-        ...(state && { state }),
-        ...(city && { city }),
-        ...(address && { address }),
-        _updatedAt: new Date().toISOString(),
+        image,
+        updatedAt: new Date().toISOString(),
       })
       .commit();
 
-    // await logUserActivity(
-    //   userId,
-    //   "Profile Updated",
-    //   "User profile updated successfully",
-    //   "successful"
-    // );
-
-    return sendResponse(res, true, "Profile updated successfully", 200);
+    return sendResponse(res, true, "Profile image updated successfully", 200, {
+      image: updatedUser.image,
+    });
   } catch (err) {
-    // await logUserActivity(
-    //   userId,
-    //   "Profile Update Failed",
-    //   `Profile update error: ${err.message}`,
-    //   "failed"
-    // );
-
-    return sendResponse(res, false, "Failed to update profile", 500, {
+    return sendResponse(res, false, "Failed to update profile image", 500, {
       details: err.message,
     });
   }
