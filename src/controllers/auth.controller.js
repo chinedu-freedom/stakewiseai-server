@@ -128,11 +128,12 @@ export const register = asyncHandler(async (req, res) => {
     };
 
     // ✅ Increment referrer count (non-blocking safe update)
-    client
-      .patch(ref._id)
-      .inc({ referralCount: 1 })
-      .commit()
-      .catch(console.error);
+   client
+  .patch(ref._id)
+  .setIfMissing({ referralCount: 0 })
+  .inc({ referralCount: 1 })
+  .commit()
+  .catch(console.error);
   }
 
   const rawToken = crypto.randomBytes(32).toString("hex");

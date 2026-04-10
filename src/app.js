@@ -8,7 +8,7 @@ import authRoutes from "./routes/auth.routes.js";
 import walletRoutes from "./routes/wallet.routes.js";
 import withdrawalRoutes from "./routes/withdrawal.routes.js";
 import depositRoutes from "./routes/deposit.routes.js";
-import investmentRoutes from "./routes/user/investment.routes.js";
+import investmentRoutes from "./routes/investment.routes.js";
 import userInvestmentRoutes from "./routes/user/investment.routes.js";
 import vipRoutes from "./routes/vip.routes.js";
 import userRoutes from "./routes/user/user.routes.js";
@@ -46,7 +46,7 @@ app.use("/api/withdrawals", withdrawalRoutes);
 app.use("/api/wallets", walletRoutes);
 app.use("/api/vips", vipRoutes);
 app.use("/api/deposits", depositRoutes);
-app.use("/api/investments", investmentRoutes);
+app.use("/api/investment", investmentRoutes);
 app.use("/api/users/investments", userInvestmentRoutes);
 app.use("/api/users", userRoutes);
 
