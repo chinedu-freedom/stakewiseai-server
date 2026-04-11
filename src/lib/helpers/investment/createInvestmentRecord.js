@@ -48,6 +48,7 @@ export async function createInvestmentRecord(
     // ✅ 2. Deduct user balance
     transaction.patch(userId, (patch) =>
       patch
+        .setIfMissing({ accountBalance: 0, totalInvestment: 0 })
         .dec({ accountBalance: Number(amount) })
         .inc({ totalInvestment: Number(amount) })
     );
@@ -88,6 +89,7 @@ export async function createInvestmentRecord(
       // ✅ Add money to referrer
       transaction.patch(p.user._id, (patch) =>
         patch
+          .setIfMissing({ accountBalance: 0, totalProfit: 0, referralRewards: [] })
           .inc({ accountBalance: rewardAmount })
           .inc({ totalProfit: rewardAmount })
           .append("referralRewards", [
