@@ -7,26 +7,40 @@ import { getPaginationParams, buildPaginationMeta } from "../../lib/pagination.j
 export const getReferralsController = asyncHandler(async (req, res) => {
   const userId = req.user?.userId;
 
-  if (!userId) return sendResponse(res, false, "Unauthorized: Please log in", 401);
+  if (!userId) {
+    return sendResponse(res, false, "Unauthorized: Please log in", 401);
+  }
 
-  // Pagination
+  // Pagination & Level parsing
   const { page, limit, start, end } = getPaginationParams(req);
+  const level = parseInt(req.query.level) || 1;
 
-  // Total count of referrals
-  const totalCount = await client.fetch(
-    `count(*[_type == "user" && referredBy._ref == $userId])`,
-    { userId }
-  );
+  // Determine the relationship query based on level
+  let referralCondition = `referredBy._ref == $userId`;
+  
+  if (level === 2) {
+    // Level 2: Users whose referrer is referred by the current user
+    referralCondition = `referredBy._ref in *[_type == "user" && referredBy._ref == $userId]._id`;
+  } else if (level === 3) {
+    // Level 3: Users whose referrer is in Level 2
+    referralCondition = `referredBy._ref in *[_type == "user" && referredBy._ref in *[_type == "user" && referredBy._ref == $userId]._id]._id`;
+  }
 
-  // Fetch paginated referrals
+  const baseQuery = `*[_type == "user" && ${referralCondition}]`;
+
+  // Total count of referrals at this level
+  const totalCount = await client.fetch(`count(${baseQuery})`, { userId });
+
+  // Fetch paginated referrals including totalInvestment for UI
   const referrals = await client.fetch(
-    `*[_type == "user" && referredBy._ref == $userId] | order(_createdAt desc) [${start}...${end}] {
+    `${baseQuery} | order(_createdAt desc) [${start}...${end}] {
       _id,
       email,
       accountStatus,
       emailVerified,
       username,
       referralCode,
+      totalInvestment,
       referredBy->{
         _id,
         username
@@ -38,7 +52,8 @@ export const getReferralsController = asyncHandler(async (req, res) => {
 
   const pagination = buildPaginationMeta(totalCount, page, limit);
 
-  return sendResponse(res, true, "Referrals fetched successfully", 200, {
+  return sendResponse(res, true, `Level ${level} Referrals fetched successfully`, 200, {
+    level,
     referrals,
     pagination,
   });
