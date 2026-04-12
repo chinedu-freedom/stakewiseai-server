@@ -4,11 +4,7 @@ import { createWithdrawal } from "../lib/helpers/withdrawal/createWithdrawal.js"
 import { client } from "../lib/sanity.js";
 import { getPaginationParams, buildPaginationMeta } from "../lib/pagination.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
-
-const MIN_WITHDRAWAL = 20;
-const MAX_WITHDRAWAL = 100;
-const DAILY_WITHDRAWAL_LIMIT = 100;
-const MAX_DAILY_WITHDRAWALS = 5;
+import { getVipConfig } from "../lib/helpers/vip/getVipConfig.js";
 
 
 export const createWithdrawalHandler = asyncHandler(async (req, res) => {
@@ -84,43 +80,65 @@ export const getWithdrawalLimitsController = asyncHandler(async (req, res) => {
   }
 
   const availableProfit = Number(userData.availableProfit) || 0;
+  const vipConfig = await getVipConfig(userData.vipLevel);
 
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const startOfDay = new Date(now).setHours(0, 0, 0, 0);
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - 7);
 
-  const dailyData = await client.fetch(
+  const stats = await client.fetch(
     `{
-      "count": count(*[
+      "dailyCount": count(*[
         _type=="withdrawal" &&
         user._ref==$userId &&
         requestedAt >= $startOfDay
       ]),
-      "total": sum(*[
+      "dailyTotal": sum(*[
         _type=="withdrawal" &&
         user._ref==$userId &&
         requestedAt >= $startOfDay
-      ].amount)
+      ].amount),
+      "weeklyCount": count(*[
+        _type=="withdrawal" &&
+        user._ref==$userId &&
+        requestedAt >= $startOfWeek
+      ])
     }`,
-    { userId, startOfDay: startOfDay.toISOString() }
+    { 
+      userId, 
+      startOfDay: new Date(startOfDay).toISOString(),
+      startOfWeek: startOfWeek.toISOString()
+    }
   );
 
-  const dailyCount = dailyData?.count || 0;
-  const dailyTotal = dailyData?.total || 0;
+  const dailyCount = stats?.dailyCount || 0;
+  const dailyTotal = stats?.dailyTotal || 0;
+  const weeklyCount = stats?.weeklyCount || 0;
 
   const remainingDailyLimit = Math.max(
     0,
-    DAILY_WITHDRAWAL_LIMIT - dailyTotal
+    (Number(vipConfig.dailyWithdrawalLimit) || 0) - dailyTotal
+  );
+
+  const remainingWeeklyCount = Math.max(
+    0,
+    (Number(vipConfig.maxWeeklyWithdrawals) || 0) - weeklyCount
   );
 
   return sendResponse(res, true, "Withdrawal limits fetched", 200, {
-    minWithdrawal: MIN_WITHDRAWAL,
-    maxWithdrawal: MAX_WITHDRAWAL,
-    maxDailyLimit: DAILY_WITHDRAWAL_LIMIT,
-    maxDailyWithdrawals: MAX_DAILY_WITHDRAWALS,
+    vipLevel: vipConfig.name,
+    minWithdrawal: vipConfig.minWithdrawal,
+    maxWithdrawal: vipConfig.maxWithdrawal,
+    maxDailyLimit: vipConfig.dailyWithdrawalLimit,
+    maxDailyWithdrawals: vipConfig.maxDailyWithdrawals,
+    maxWeeklyWithdrawals: vipConfig.maxWeeklyWithdrawals,
 
     dailyTotal,
     dailyCount,
+    weeklyCount,
     remainingDailyLimit,
+    remainingWeeklyCount,
 
     availableProfit,
   });

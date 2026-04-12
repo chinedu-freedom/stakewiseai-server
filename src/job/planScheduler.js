@@ -2,9 +2,9 @@ import cron from "node-cron";
 import { client } from "../lib/sanity.js";
 
 export const startInvestmentScheduler = () => {
-  // Runs every 24 hours (midnight)
-  cron.schedule("0 0 * * *", async () => {
-    console.log("Running DAILY investment profit scheduler...");
+  // Runs every hour to check for 24-hour maturity for each investment
+  cron.schedule("0 * * * *", async () => {
+    console.log("Running hourly investment profit scheduler...");
 
     try {
       const now = new Date();

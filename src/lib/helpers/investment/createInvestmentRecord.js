@@ -1,5 +1,6 @@
 import { client } from "../../sanity.js";
 import { v4 as uuid } from "uuid";
+import { updateUserVipLevel } from "../vip/updateUserVipLevel.js";
 
 export async function createInvestmentRecord(
   userId,
@@ -106,6 +107,11 @@ export async function createInvestmentRecord(
     }
 
     const result = await transaction.commit();
+
+    // ✅ 4. Trigger VIP Level Update
+    await updateUserVipLevel(userId).catch((err) =>
+      console.error(`[VIP Error] Failed to update VIP for user ${userId}:`, err)
+    );
 
     return {
       success: true,

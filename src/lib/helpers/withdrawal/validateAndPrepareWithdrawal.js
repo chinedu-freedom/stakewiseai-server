@@ -45,18 +45,19 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
 
   const vipConfig = await getVipConfig(userData.vipLevel);
 
-  const MIN_WITHDRAWAL = vipConfig.minWithdrawal;
-  const MAX_WITHDRAWAL = vipConfig.maxWithdrawal;
-  const DAILY_WITHDRAWAL_LIMIT = vipConfig.dailyWithdrawalLimit;
-  const MAX_DAILY_WITHDRAWALS = vipConfig.maxDailyWithdrawals;
+  const MIN_WITHDRAWAL = Number(vipConfig.minWithdrawal) || 20;
+  const MAX_WITHDRAWAL = Number(vipConfig.maxWithdrawal) || 10000;
+  const DAILY_WITHDRAWAL_LIMIT = Number(vipConfig.dailyWithdrawalLimit) || 1000;
+  const MAX_DAILY_WITHDRAWALS = Number(vipConfig.maxDailyWithdrawals) || 5;
+  const MAX_WEEKLY_WITHDRAWALS = Number(vipConfig.maxWeeklyWithdrawals) || 20;
 
   if (parsedAmount < MIN_WITHDRAWAL) {
-    sendResponse(res, false, `Minimum withdrawal is $${MIN_WITHDRAWAL}`, 400);
+    sendResponse(res, false, `Minimum withdrawal for ${vipConfig.name} is $${MIN_WITHDRAWAL}`, 400);
     return { error: true };
   }
 
   if (parsedAmount > MAX_WITHDRAWAL) {
-    sendResponse(res, false, `Maximum withdrawal is $${MAX_WITHDRAWAL}`, 400);
+    sendResponse(res, false, `Maximum withdrawal for ${vipConfig.name} is $${MAX_WITHDRAWAL}`, 400);
     return { error: true };
   }
 
@@ -67,35 +68,50 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
     return { error: true };
   }
 
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const now = new Date();
+  const startOfDay = new Date(now).setHours(0, 0, 0, 0);
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - 7); // Rolling 7 days
 
-  const dailyData = await client.fetch(
+  const withdrawalStats = await client.fetch(
     `{
-      "count": count(*[
+      "dailyCount": count(*[
         _type=="withdrawal" &&
         user._ref==$userId &&
         requestedAt >= $startOfDay
       ]),
-      "total": sum(*[
+      "dailyTotal": sum(*[
         _type=="withdrawal" &&
         user._ref==$userId &&
         requestedAt >= $startOfDay
-      ].amount)
+      ].amount),
+      "weeklyCount": count(*[
+        _type=="withdrawal" &&
+        user._ref==$userId &&
+        requestedAt >= $startOfWeek
+      ])
     }`,
-    { userId, startOfDay: startOfDay.toISOString() }
+    { 
+      userId, 
+      startOfDay: new Date(startOfDay).toISOString(),
+      startOfWeek: startOfWeek.toISOString()
+    }
   );
 
-  const dailyCount = dailyData?.count || 0;
-  const dailyTotal = dailyData?.total || 0;
+  const { dailyCount, dailyTotal, weeklyCount } = withdrawalStats;
 
   if (dailyCount >= MAX_DAILY_WITHDRAWALS) {
-    sendResponse(res, false, "Daily withdrawal count exceeded", 400);
+    sendResponse(res, false, `Daily withdrawal count exceeded (${MAX_DAILY_WITHDRAWALS} allowed for ${vipConfig.name})`, 400);
     return { error: true };
   }
 
   if (dailyTotal + parsedAmount > DAILY_WITHDRAWAL_LIMIT) {
-    sendResponse(res, false, "Daily withdrawal limit exceeded", 400);
+    sendResponse(res, false, `Daily withdrawal limit exceeded ($${DAILY_WITHDRAWAL_LIMIT} allowed for ${vipConfig.name})`, 400);
+    return { error: true };
+  }
+
+  if (weeklyCount >= MAX_WEEKLY_WITHDRAWALS) {
+    sendResponse(res, false, `Weekly withdrawal count exceeded (${MAX_WEEKLY_WITHDRAWALS} allowed for ${vipConfig.name})`, 400);
     return { error: true };
   }
 
