@@ -25,10 +25,11 @@ export async function createWithdrawal({
 
   await client
     .transaction()
-    .patch(userId, {
-      setIfMissing: { reservedProfit: 0 },
-      inc: { reservedProfit: amount },
-    })
+    .patch(userId, (patch) =>
+      patch
+        .setIfMissing({ reservedProfit: 0, availableProfit: 0 })
+        .inc({ reservedProfit: amount, availableProfit: -amount })
+    )
     .create(newWithdrawal)
     .commit();
 

@@ -37,7 +37,7 @@ export const startInvestmentScheduler = () => {
           isFixedDeposit,
         } = inv;
 
-        if (!user || !plan) continue;
+        if (!user?._id || !plan) continue;
 
         const lastCredit = lastCreditedAt
           ? new Date(lastCreditedAt)
@@ -56,50 +56,60 @@ export const startInvestmentScheduler = () => {
 
         const isMatured = now >= new Date(endDate);
 
-        // 🔄 Build dynamic profit updates
-        let userUpdate = {
+        // 🔄 Build dynamic updates
+        const transaction = client.transaction();
+
+        // 1. Update Investment Document
+        const investmentUpdate = {
+          profitEarned: (Number(profitEarned) || 0) + dailyProfit,
+          lastCreditedAt: now.toISOString(),
+        };
+
+        if (isMatured) {
+          investmentUpdate.status = "completed";
+          investmentUpdate.maturityStatus = "matured";
+          investmentUpdate.updatedAt = now.toISOString();
+        }
+
+        transaction.patch(_id, (patch) => patch.set(investmentUpdate));
+
+        // 2. Update User Financials
+        const userPatch = {
           totalProfit: dailyProfit,
         };
 
         if (isFixedDeposit) {
           if (isMatured) {
-            // ✅ Once matured → move to available
-            userUpdate.availableProfit = dailyProfit;
+            /** 
+             * 🔓 MATURITY UNLOCK:
+             * Move entire accumulated profit (including today's) to availableProfit
+             * and clear it from reservedProfit.
+             */
+            userPatch.availableProfit = (Number(profitEarned) || 0) + dailyProfit;
+            userPatch.reservedProfit = -(Number(profitEarned) || 0); 
           } else {
-            // 🔒 Still locked → keep in reserved
-            userUpdate.reservedProfit = dailyProfit;
+            // 🔒 STILL LOCKED: Add only to reserved
+            userPatch.reservedProfit = dailyProfit;
           }
         } else {
-          // ✅ Flexible → always available
-          userUpdate.availableProfit = dailyProfit;
+          // ✅ FLEXIBLE: Always goes to available
+          userPatch.availableProfit = dailyProfit;
         }
 
-        // 💰 ATOMIC UPDATE
-        await client
-          .transaction()
-          .patch(_id, (patch) =>
-            patch
-              .inc({ profitEarned: dailyProfit })
-              .set({ lastCreditedAt: now.toISOString() })
-          )
-          .patch(user._id, (patch) =>
-            patch.inc(userUpdate)
-          )
-          .commit();
-
-        // 🏁 HANDLE MATURITY
-        if (isMatured) {
-          await client
-            .patch(_id)
-            .set({
-              status: "completed",
-              maturityStatus: "matured",
+        transaction.patch(user._id, (patch) =>
+          patch
+            .setIfMissing({ 
+              totalProfit: 0, 
+              availableProfit: 0, 
+              reservedProfit: 0 
             })
-            .commit();
-        }
+            .inc(userPatch)
+        );
+
+        await transaction.commit();
 
         console.log(
-          `Credited ${dailyProfit.toFixed(2)} to user ${user._id} (Investment ${_id})`
+          `[SCHEDULER] Credited ${dailyProfit.toFixed(2)} to user ${user._id} | Inv: ${_id} | Matured: ${isMatured}`
         );
       }
     } catch (err) {

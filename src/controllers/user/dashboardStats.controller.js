@@ -48,14 +48,10 @@ export const getDashboardStatsController = asyncHandler(async (req, res) => {
     "Dashboard statistics fetched successfully",
     200,
     {
-      walletBalance: Number(userData.accountBalance || 0),
-
-      totalInvestment: Number(userData.totalInvestment || 0),
-
-      totalProfit,
-
-      availableProfit,
-
+      currentAssets: Number(userData.accountBalance || 0),
+      totalStaked: Number(userData.totalInvestment || 0),
+      totalCommission: totalProfit,
+      commission: availableProfit, // Spendable
       totalWithdrawalAmount,
     }
   );
