@@ -11,7 +11,6 @@ import { withAuth } from "../middlewares/auth/authGuard.js";
 
 const router = express.Router();
 
-// ── Manual deposit (existing) ────────────────────────────────────────────────
 router.post(
   "/",
   withAuth,
