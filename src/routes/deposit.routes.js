@@ -3,6 +3,9 @@ import { upload } from "../middlewares/upload.js";
 import {
   createDepositHandler,
   getDepositHistoryHandler,
+  getOxapayAddressHandler,
+  notifyOxapayPaymentHandler,
+  oxapayWebhookHandler,
 } from "../controllers/deposit.controller.js";
 import { withAuth } from "../middlewares/auth/authGuard.js";
 
@@ -17,5 +20,8 @@ router.post(
 
 router.get("/history", getDepositHistoryHandler);
 
-
+// OxaPay Routes
+router.get("/oxapay-address", getOxapayAddressHandler);
+router.post("/oxapay-notify", withAuth, notifyOxapayPaymentHandler);
+router.post("/oxapay-webhook", oxapayWebhookHandler);
 export default router;
