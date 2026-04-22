@@ -208,49 +208,21 @@ export const register = asyncHandler(async (req, res) => {
 export const login = asyncHandler(async (req, res) => {
   const sanitized = sanitizeInput(req.body);
 
-  const { phoneNumber, countryCode, password, keepMeLoggedIn } = sanitized;
+  const { email, password, keepMeLoggedIn } = sanitized;
+
+  const normalizedEmail = email?.trim().toLowerCase();
 
   // Validate required fields
   const validationError = validateFields(
-    ["phoneNumber", "password"],
-    { phoneNumber, password }
+    ["email", "password"],
+    { email: normalizedEmail, password }
   );
 
   if (validationError) {
     return sendResponse(res, false, validationError, 400);
   }
 
-  let parsedPhone;
-
-  if (phoneNumber.startsWith("+")) {
-    parsedPhone = parsePhoneNumberFromString(phoneNumber);
-  }
-
-  else {
-    if (!countryCode) {
-      return sendResponse(res, false, "Country code is required", 400);
-    }
-
-    if (!/^\+\d{1,4}$/.test(countryCode)) {
-      return sendResponse(res, false, "Invalid country code format", 400);
-    }
-
-    // Combine safely
-    const fullNumber = `${countryCode}${phoneNumber}`;
-
-    parsedPhone = parsePhoneNumberFromString(fullNumber);
-  }
-
-  if (!parsedPhone || !parsedPhone.isValid()) {
-    return sendResponse(res, false, "Invalid phone number", 400);
-  }
-
-  const formattedPhone = parsedPhone.format("E.164");
-
-  const user = await client.fetch(
-    `*[_type=="user" && phoneNumber==$phone][0]`,
-    { phone: formattedPhone }
-  );
+  const user = await findUserByEmail(normalizedEmail);
 
   // Prevent timing attacks
   const fakeHash =
@@ -262,7 +234,7 @@ export const login = asyncHandler(async (req, res) => {
   );
 
   if (!user || !passwordMatch) {
-    return sendResponse(res, false, "Invalid phone number or password", 401);
+    return sendResponse(res, false, "Invalid email or password", 401);
   }
 
   if (user.role !== "user") {
@@ -324,6 +296,7 @@ export const login = asyncHandler(async (req, res) => {
   return sendResponse(res, true, "Login successful", 200, {
     userId: user._id,
     username: user.username,
+    email: user.email,
     phoneNumber: user.phoneNumber,
     role: user.role,
     accountStatus: user.accountStatus,
