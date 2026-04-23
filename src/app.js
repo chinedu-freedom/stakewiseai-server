@@ -1,7 +1,6 @@
 import express from "express";
 import multer from "multer";
 import cors from "cors";
-import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import morgan from "morgan";
 import authRoutes from "./routes/auth.routes.js";
@@ -25,12 +24,9 @@ if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
 }
 
-// Enable JSON & URL-encoded body parsing
+// Parse bodies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Parse cookies
-app.use(cookieParser());
 
 // CORS configuration
 app.use(

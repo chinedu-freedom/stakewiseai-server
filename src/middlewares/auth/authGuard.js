@@ -4,10 +4,10 @@ import { sendResponse } from "../../lib/response.js";
 
 export const withAuth = async (req, res, next) => {
   try {
-    const token =
-      req.cookies?.token;
-      // req.cookies?.token ||
-      // req.headers.authorization?.replace("Bearer ", "");
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+    const token = authHeader?.startsWith("Bearer ")
+      ? authHeader.split(" ")[1]
+      : null;
 
     if (!token) {
       return sendResponse(res, false, "Unauthorized: Please log in", 401);

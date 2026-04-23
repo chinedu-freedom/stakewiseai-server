@@ -286,13 +286,6 @@ export const login = asyncHandler(async (req, res) => {
     expiresIn: keepMeLoggedIn ? "24h" : "1h",
   });
 
-  res.cookie("token", accessToken, {
-    httpOnly: true,
-    secure: true, // change in production
-    sameSite: "none",
-    maxAge: keepMeLoggedIn ? 86400000 : 3600000,
-  });
-
   return sendResponse(res, true, "Login successful", 200, {
     userId: user._id,
     username: user.username,
@@ -301,18 +294,11 @@ export const login = asyncHandler(async (req, res) => {
     role: user.role,
     accountStatus: user.accountStatus,
     referralCode: user.referralCode,
+    token: accessToken,
   });
 });
 
 export const logout = asyncHandler(async (req, res) => {
-  res.cookie("token", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    expires: new Date(0),
-    path: "/",
-  });
-
   return sendResponse(res, true, "Logout successful", 200);
 });
 
