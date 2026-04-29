@@ -61,27 +61,34 @@ export const getDepositHistoryHandler = asyncHandler(async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/deposits/oxapay-address
-// Returns the USDT TRC20 deposit address for OxaPay automatic deposits.
+// Returns the deposit address for OxaPay automatic deposits.
 // If OXAPAY_MERCHANT_KEY is set, creates a dynamic invoice via OxaPay API.
-// Falls back to the merchant static address otherwise.
+// Falls back to the merchant static addresses otherwise.
 // ─────────────────────────────────────────────────────────────────────────────
 export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
+  const { currency = "USDT", network = "TRC20" } = req.query;
+
   // If a merchant API key is configured, create a dynamic OxaPay invoice
   if (OXAPAY_MERCHANT_KEY) {
+    let oxapayNetwork = network.toLowerCase();
+    if (oxapayNetwork === 'bitcoin') oxapayNetwork = 'btc';
+    if (oxapayNetwork === 'litecoin') oxapayNetwork = 'ltc';
+
     try {
       const invoiceRes = await fetch("https://api.oxapay.com/merchants/request/invoice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           merchant: OXAPAY_MERCHANT_KEY,
-          currency: "USDT",
+          currency: currency.toUpperCase(),
+          network: oxapayNetwork,
           // amount: null means 'open amount' — customer can send any value
           lifeTime: 60, // minutes
           feePaidByPayer: 0,
           underPaidCover: 2.5,
           callbackUrl: `${process.env.BACKEND_URL || "https://stakewiseai-server.onrender.com"}/api/deposits/oxapay-webhook`,
           returnUrl: `${process.env.FRONTEND_URL || ""}/index.html`,
-          description: "GlobalStakeAI Deposit",
+          description: `GlobalStakeAI Deposit - ${currency.toUpperCase()} ${network}`,
         }),
       });
       const json = await invoiceRes.json();
@@ -98,9 +105,19 @@ export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
     }
   }
 
-  // Fallback: merchant static address
+  // Fallback: merchant static addresses
+  const STATIC_ADDRESSES = {
+    'USDT_TRC20': process.env.OXAPAY_STATIC_ADDRESS || "TFoPJE6H5uHWV7X69EMavqyUxF9B1HnmwY",
+    'USDT_BEP20': process.env.USDT_BEP20_ADDRESS || "0xYourBscFallbackAddressHere",
+    'BTC_Bitcoin': process.env.BTC_ADDRESS || "bc1qYourBtcFallbackAddressHere",
+    'LTC_Litecoin': process.env.LTC_ADDRESS || "ltc1qYourLtcFallbackAddressHere"
+  };
+
+  const key = `${currency}_${network}`;
+  const address = STATIC_ADDRESSES[key] || STATIC_ADDRESSES['USDT_TRC20'];
+
   return sendResponse(res, true, "OxaPay static address", 200, {
-    address: OXAPAY_STATIC_ADDRESS,
+    address,
     dynamic: false,
   });
 });
