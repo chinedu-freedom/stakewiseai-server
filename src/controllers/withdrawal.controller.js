@@ -4,8 +4,6 @@ import { createWithdrawal } from "../lib/helpers/withdrawal/createWithdrawal.js"
 import { client } from "../lib/sanity.js";
 import { getPaginationParams, buildPaginationMeta } from "../lib/pagination.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
-import { getVipConfig } from "../lib/helpers/vip/getVipConfig.js";
-
 
 export const createWithdrawalHandler = asyncHandler(async (req, res) => {
   const { user } = req; // attached by withAuth / withKycAuth
@@ -80,7 +78,11 @@ export const getWithdrawalLimitsController = asyncHandler(async (req, res) => {
   }
 
   const availableProfit = Number(userData.availableProfit) || 0;
-  const vipConfig = await getVipConfig(userData.vipLevel);
+  const MIN_WITHDRAWAL = 20;
+  const MAX_WITHDRAWAL = 100;
+  const DAILY_WITHDRAWAL_LIMIT = 100;
+  const MAX_DAILY_WITHDRAWALS = 5;
+  const MAX_WEEKLY_WITHDRAWALS = 20;
 
   const now = new Date();
   const startOfDay = new Date(now).setHours(0, 0, 0, 0);
@@ -118,21 +120,21 @@ export const getWithdrawalLimitsController = asyncHandler(async (req, res) => {
 
   const remainingDailyLimit = Math.max(
     0,
-    (Number(vipConfig.dailyWithdrawalLimit) || 0) - dailyTotal
+    DAILY_WITHDRAWAL_LIMIT - dailyTotal
   );
 
   const remainingWeeklyCount = Math.max(
     0,
-    (Number(vipConfig.maxWeeklyWithdrawals) || 0) - weeklyCount
+    MAX_WEEKLY_WITHDRAWALS - weeklyCount
   );
 
   return sendResponse(res, true, "Withdrawal limits fetched", 200, {
-    vipLevel: vipConfig.name,
-    minWithdrawal: vipConfig.minWithdrawal,
-    maxWithdrawal: vipConfig.maxWithdrawal,
-    maxDailyLimit: vipConfig.dailyWithdrawalLimit,
-    maxDailyWithdrawals: vipConfig.maxDailyWithdrawals,
-    maxWeeklyWithdrawals: vipConfig.maxWeeklyWithdrawals,
+    vipLevel: userData.vipLevel || "Standard",
+    minWithdrawal: MIN_WITHDRAWAL,
+    maxWithdrawal: MAX_WITHDRAWAL,
+    maxDailyLimit: DAILY_WITHDRAWAL_LIMIT,
+    maxDailyWithdrawals: MAX_DAILY_WITHDRAWALS,
+    maxWeeklyWithdrawals: MAX_WEEKLY_WITHDRAWALS,
 
     dailyTotal,
     dailyCount,

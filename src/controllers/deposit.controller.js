@@ -132,7 +132,7 @@ export const notifyOxapayPaymentHandler = asyncHandler(async (req, res) => {
   const { userId } = req.user || {};
   if (!userId) return sendResponse(res, false, "Unauthorized", 401);
 
-  const { amount: amountRaw, crypto = "USDT", network = "TRC20" } = req.body;
+  const { amount: amountRaw, crypto = "USDT", network = "TRC20", trackId } = req.body;
   const amount = Number(amountRaw);
 
   if (!amount || isNaN(amount) || amount < 100) {
@@ -165,6 +165,7 @@ export const notifyOxapayPaymentHandler = asyncHandler(async (req, res) => {
     fundedAt: now,
     method: "oxapay",
     notes: "Awaiting blockchain confirmation via OxaPay",
+    trackId: trackId || null,
   };
 
   await client.create(newDeposit);
@@ -211,11 +212,22 @@ export const oxapayWebhookHandler = asyncHandler(async (req, res) => {
   const trackId   = payload.trackId || "";
 
   // Find the pending deposit by trackId or amount (best effort matching)
-  // In a real setup you'd store trackId when creating the invoice
-  const pendingDeposit = await client.fetch(
-    `*[_type == "deposit" && status == "pending" && method == "oxapay" && amount == $amount] | order(_createdAt desc) [0]{ _id, user }`,
-    { amount: paidAmount }
-  );
+  let pendingDeposit = null;
+
+  if (trackId) {
+    pendingDeposit = await client.fetch(
+      `*[_type == "deposit" && status == "pending" && method == "oxapay" && trackId == $trackId] | order(_createdAt desc) [0]{ _id, user }`,
+      { trackId }
+    );
+  }
+
+  // Fallback if trackId is missing or no deposit is found (e.g., older static deposits)
+  if (!pendingDeposit) {
+    pendingDeposit = await client.fetch(
+      `*[_type == "deposit" && status == "pending" && method == "oxapay" && amount == $amount] | order(_createdAt desc) [0]{ _id, user }`,
+      { amount: paidAmount }
+    );
+  }
 
   if (!pendingDeposit) {
     console.warn("OXAPAY_WEBHOOK: No matching deposit found for amount", paidAmount);

@@ -1,7 +1,5 @@
 import { client } from "../../sanity.js";
 import { sendResponse } from "../../response.js";
-import { getVipConfig } from "../vip/getVipConfig.js";
-
 export async function validateAndPrepareWithdrawal(req, user, res) {
   const userId = user?.userId;
 
@@ -43,21 +41,19 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
     return { error: true };
   }
 
-  const vipConfig = await getVipConfig(userData.vipLevel);
-
-  const MIN_WITHDRAWAL = Number(vipConfig.minWithdrawal) || 20;
-  const MAX_WITHDRAWAL = Number(vipConfig.maxWithdrawal) || 10000;
-  const DAILY_WITHDRAWAL_LIMIT = Number(vipConfig.dailyWithdrawalLimit) || 1000;
-  const MAX_DAILY_WITHDRAWALS = Number(vipConfig.maxDailyWithdrawals) || 5;
-  const MAX_WEEKLY_WITHDRAWALS = Number(vipConfig.maxWeeklyWithdrawals) || 20;
+  const MIN_WITHDRAWAL = 20;
+  const MAX_WITHDRAWAL = 100;
+  const DAILY_WITHDRAWAL_LIMIT = 100;
+  const MAX_DAILY_WITHDRAWALS = 5;
+  const MAX_WEEKLY_WITHDRAWALS = 20;
 
   if (parsedAmount < MIN_WITHDRAWAL) {
-    sendResponse(res, false, `Minimum withdrawal for ${vipConfig.name} is $${MIN_WITHDRAWAL}`, 400);
+    sendResponse(res, false, `Minimum withdrawal is $${MIN_WITHDRAWAL}`, 400);
     return { error: true };
   }
 
   if (parsedAmount > MAX_WITHDRAWAL) {
-    sendResponse(res, false, `Maximum withdrawal for ${vipConfig.name} is $${MAX_WITHDRAWAL}`, 400);
+    sendResponse(res, false, `Maximum withdrawal is $${MAX_WITHDRAWAL}`, 400);
     return { error: true };
   }
 
@@ -101,17 +97,17 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
   const { dailyCount, dailyTotal, weeklyCount } = withdrawalStats;
 
   if (dailyCount >= MAX_DAILY_WITHDRAWALS) {
-    sendResponse(res, false, `Daily withdrawal count exceeded (${MAX_DAILY_WITHDRAWALS} allowed for ${vipConfig.name})`, 400);
+    sendResponse(res, false, `Daily withdrawal count exceeded (${MAX_DAILY_WITHDRAWALS} allowed)`, 400);
     return { error: true };
   }
 
   if (dailyTotal + parsedAmount > DAILY_WITHDRAWAL_LIMIT) {
-    sendResponse(res, false, `Daily withdrawal limit exceeded ($${DAILY_WITHDRAWAL_LIMIT} allowed for ${vipConfig.name})`, 400);
+    sendResponse(res, false, `Daily withdrawal limit exceeded ($${DAILY_WITHDRAWAL_LIMIT} allowed)`, 400);
     return { error: true };
   }
 
   if (weeklyCount >= MAX_WEEKLY_WITHDRAWALS) {
-    sendResponse(res, false, `Weekly withdrawal count exceeded (${MAX_WEEKLY_WITHDRAWALS} allowed for ${vipConfig.name})`, 400);
+    sendResponse(res, false, `Weekly withdrawal count exceeded (${MAX_WEEKLY_WITHDRAWALS} allowed)`, 400);
     return { error: true };
   }
 
