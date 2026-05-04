@@ -4,9 +4,7 @@ import {
   login,
   logout,
   forgotPassword,
-  resendVerification,
   resetPassword,
-  verifyEmail,
   verifyUserOtp,
 } from "../controllers/auth.controller.js";
 
@@ -16,9 +14,7 @@ router.post("/signup", register);
 router.post("/login", login);
 router.post("/logout", logout);
 router.post("/request-otp", forgotPassword);
-router.post("/resend-verification", resendVerification);
 router.post("/reset-password", resetPassword);
-router.get("/verify-email", verifyEmail);
 router.post("/verify-otp", verifyUserOtp);
 
 

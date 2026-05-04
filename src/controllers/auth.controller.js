@@ -2,7 +2,7 @@ import { client } from "../lib/sanity.js";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import bcrypt from "bcryptjs";
 import {
-  sendVerificationEmail,
+  sendWelcomeEmail,
   sendPasswordResetEmail,
   sendPasswordResetConfirmationEmail
 } from "../lib/mailer.js";
@@ -136,13 +136,6 @@ export const register = asyncHandler(async (req, res) => {
   .catch(console.error);
   }
 
-  const rawToken = crypto.randomBytes(32).toString("hex");
-
-  const verificationToken = await bcrypt.hash(
-    rawToken,
-    Number(process.env.SALT_ROUNDS) || 10
-  );
-
   const userData = {
     _type: "user",
     username,
@@ -158,19 +151,15 @@ export const register = asyncHandler(async (req, res) => {
 
     ...(referredBy && { referredBy }),
 
-    // ✅ NEW FIELD
     referralLevel,
 
-    emailVerified: false,
-    accountStatus: "pending",
+    emailVerified: true,
+    accountStatus: "active",
     role: "user",
-
-    verificationToken,
-    tokenExpiresAt: addMinutes(new Date(), 10).toISOString(),
 
     totalProfit: 0,
     reservedProfit: 0,
-    accountBalance: 0,
+    accountBalance: 10,
     availableProfit: 0,
 
     isDeleted: false,
@@ -181,22 +170,13 @@ export const register = asyncHandler(async (req, res) => {
 
   const newUser = await client.create(userData);
 
-  const emailResult = await sendVerificationEmail({
+  // Send welcome email (non-blocking)
+  sendWelcomeEmail({
     email: normalizedEmail,
     name: username,
-    token: rawToken,
-  });
+  }).catch((err) => console.error("WELCOME_EMAIL_FAILED:", err));
 
-  if (!emailResult?.success) {
-    return sendResponse(
-      res,
-      false,
-      "Account created but verification email could not be sent.",
-      500
-    );
-  }
-
-  return sendResponse(res, true, "Verification email sent", 201, {
+  return sendResponse(res, true, "Account created successfully", 201, {
     userId: newUser._id,
     email: newUser.email,
     accountStatus: newUser.accountStatus,
@@ -239,47 +219,6 @@ export const login = asyncHandler(async (req, res) => {
 
   if (user.role !== "user") {
     return sendResponse(res, false, "Unauthorized access", 403);
-  }
-
-  if (user.accountStatus !== "active") {
-    if (user.accountStatus === "pending") {
-      return sendResponse(
-        res,
-        false,
-        "Your account is pending. Please verify your email.",
-        403
-      );
-    }
-
-    if (user.accountStatus === "suspended") {
-      return sendResponse(
-        res,
-        false,
-        "Your account has been suspended. Please contact support.",
-        403
-      );
-    }
-
-    return sendResponse(
-      res,
-      false,
-      `Your account is ${user.accountStatus}. Please contact support.`,
-      403
-    );
-  }
-
-  if (!user.emailVerified) {
-    const tokenExpired =
-      user.tokenExpiresAt && new Date(user.tokenExpiresAt) < new Date();
-
-    return sendResponse(
-      res,
-      false,
-      tokenExpired
-        ? "Verification link expired, please request a new verification link"
-        : "Your email is not verified. Please verify your email",
-      403
-    );
   }
 
   const accessToken = generateToken(user._id, user.role, {
@@ -370,82 +309,7 @@ export const forgotPassword = asyncHandler(async (req, res) => {
 });
 
 
-export const resendVerification = asyncHandler(async (req, res) => {
-  const sanitized = sanitizeInput(req.body);
-  const email = sanitized.email?.trim().toLowerCase();
 
-  // Always return generic response (anti-enumeration)
-  if (!email) {
-    return sendResponse(
-      res,
-      true,
-      "If the email exists, a verification email will be sent",
-      200
-    );
-  }
-
-  const user = await findUserByEmail(email);
-
-  if (!user) {
-    return sendResponse(
-      res,
-      true,
-      "If the email exists, a verification email will be sent",
-      200
-    );
-  }
-
-  // Already verified → still return generic message
-  if (user.emailVerified) {
-    return sendResponse(
-      res,
-      true,
-      "If the email exists, a verification email will be sent",
-      200
-    );
-  }
-
-  // Rate limit resend
-const isTokenStillValid =
-  user.tokenExpiresAt && isAfter(new Date(user.tokenExpiresAt), new Date());
-
-if (isTokenStillValid) {
-  return sendResponse(res, true, "If the email exists, a verification email will be sent", 200);
-}
-
-  // Generate new token
-  const token = crypto.randomBytes(32).toString("hex");
-
-const verificationToken = await bcrypt.hash(
-  token,
-  parseInt(process.env.SALT_ROUNDS) || 10
-);
-
-const tokenExpiresAt = addMinutes(new Date(), 15).toISOString();
-
-await client.patch(user._id).set({
-  verificationToken,
-  tokenExpiresAt,
-  accountStatus: "pending",
-  _updatedAt: new Date().toISOString(),
-}).commit();
-
-  // Send email (non-blocking but safe)
-  sendVerificationEmail({
-    email: user.email,
-    name: user.username || "User",
-    token,
-  }).catch((err) => {
-    console.error("VERIFICATION_EMAIL_FAILED:", err);
-  });
-
-  return sendResponse(
-    res,
-    true,
-    "If the email exists, a verification email will be sent",
-    200
-  );
-});
 
 
 export const resetPassword = asyncHandler(async (req, res) => {
@@ -517,49 +381,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
   return sendResponse(res, true, "Password reset successful");
 });
 
-export const verifyEmail = asyncHandler(async (req, res) => {
-  const { token, email } = sanitizeInput(req.query);
 
-  if (!token || !email) {
-    return sendResponse(res, false, "Invalid request", 400);
-  }
-
-  const user = await findUserByEmail(email);
-
-  if (!user || !user.verificationToken) {
-    return sendResponse(res, false, "Invalid or expired verification token", 400);
-  }
-
-  // ⛔ CHECK EXPIRY FIRST (prevents unnecessary bcrypt work)
-  if (user.tokenExpiresAt && new Date() > new Date(user.tokenExpiresAt)) {
-    return sendResponse(res, false, "Verification token has expired", 400);
-  }
-
-  const tokenMatch = await bcrypt.compare(token, user.verificationToken);
-
-  if (!tokenMatch) {
-    return sendResponse(res, false, "Invalid or expired verification token", 400);
-  }
-
-  const updatedUser = await client
-    .patch(user._id)
-    .set({
-      emailVerified: true,
-      accountStatus: "active",
-      verificationToken: null,
-      tokenExpiresAt: null,
-      _updatedAt: new Date().toISOString(),
-    })
-    .setIfMissing({ accountBalance: 0 })
-    .inc({ accountBalance: 10 })
-    .commit();
-
-  return sendResponse(res, true, "Email verified successfully!", 200, {
-    userId: updatedUser._id,
-    email: updatedUser.email,
-    accountBalance: updatedUser.accountBalance,
-  });
-});
 
 export const verifyUserOtp = asyncHandler(async (req, res) => {
   const { email, otp } = sanitizeInput(req.body);

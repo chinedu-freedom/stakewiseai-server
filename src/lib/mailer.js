@@ -3,42 +3,44 @@ import { emailTemplate } from "../../template.js";
 import { sendEmail } from "../../zohoMailer.js";
 
 
-export async function sendVerificationEmail({ email, name, token }) {
-  const subject = "Verify Your Email - STAKEWISEAI";
-
-  const verificationLink = `${process.env.FRONTEND_URL}/auth/verify-email?token=${token}`;
-  
+export async function sendWelcomeEmail({ email, name }) {
+  const subject = "Welcome to STAKEWISEAI - Let's Start Growing!";
 
   const content = `
     <div style="text-align:center; padding:10px 0;">
-      <h2 style="color:#1e3a8a; margin-bottom:12px; font-size: 22px;">
-        You're Almost There, ${name}!
+      <h2 style="color:#1e3a8a; margin-bottom:15px; font-size: 24px; font-weight: 800;">
+        Welcome Aboard, ${name}! 🚀
       </h2>
 
-      <p style="color:#4b5563; font-size:16px; line-height:1.7;">
-        Welcome to <strong>STAKEWISEAI</strong> — your gateway to secure and smarter computing power.
-        To activate your account, please verify your email address.
+      <p style="color:#4b5563; font-size:16px; line-height:1.7; margin-bottom: 25px;">
+        We're thrilled to have you join <strong>STAKEWISEAI</strong>. You've just taken a major step toward optimizing your digital infrastructure and maximizing your computing power potential.
       </p>
 
+      <div style="background: #f0f9ff; border-radius: 16px; padding: 25px; margin: 30px 0; border: 1px solid #e0f2fe; text-align: left;">
+        <h3 style="color:#4f8cff; margin-top:0; font-size: 18px;">What's Next?</h3>
+        <ul style="color:#4b5563; font-size:14px; padding-left: 20px; margin-bottom: 0;">
+          <li style="margin-bottom: 10px;"><strong>Explore Staking Plans:</strong> Choose from our highly optimized computing power plans.</li>
+          <li style="margin-bottom: 10px;"><strong>Set Up Your Wallet:</strong> Connect your crypto wallet to start earning profits.</li>
+          <li><strong>Invite Friends:</strong> Share the future of computing and earn referral rewards.</li>
+        </ul>
+      </div>
+
       <div style="margin:35px 0;">
-        <a href="${verificationLink}"
+        <a href="${process.env.FRONTEND_URL}/account"
           style="background: linear-gradient(90deg, #4f8cff, #6ee7ff); color:#ffffff; padding:16px 40px;
                  border-radius:50px; text-decoration:none; font-weight:700;
-                 display:inline-block; box-shadow: 0 4px 12px rgba(79, 140, 255, 0.3);">
-          Verify My Email
+                 display:inline-block; box-shadow: 0 4px 15px rgba(79, 140, 255, 0.4);">
+          Go to My Dashboard
         </a>
       </div>
 
-      <p style="margin-top: 25px; color: #6b7280; font-size: 14px;">
-        Join <strong>120,000+ active users</strong> already optimizing their digital infrastructure with STAKEWISEAI.
+      <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
+        Our team is here to support you 24/7. If you have any questions, simply reply to this email or reach out via our Help Line.
       </p>
       
-      <p style="font-size:14px; color:#ef4444; font-weight: 500;">
-        This link will expire in <strong>10 minutes</strong>.
-      </p>
-
-      <p style="font-size:12px; color:#9ca3af; margin-top:30px; border-top: 1px solid #f3f4f6; pt-15px;">
-        If you did not create a STAKEWISEAI account, please ignore this email.
+      <p style="margin-top: 30px; font-weight: 700; color: #1e3a8a;">
+        Happy Investing,<br>
+        The STAKEWISEAI Team
       </p>
     </div>
   `;
