@@ -3,6 +3,7 @@ import { asyncHandler } from "../lib/asyncHandler.js";
 import { sendResponse } from "../lib/response.js";
 import { sanitizeInput } from "../lib/sanitizeInput.js";
 import { validateFields } from "../lib/validateFields.js";
+import { logUserActivity } from "../lib/logUserActivity.js";
 
 const MAX_WALLETS_PER_USER = 5;
 
@@ -83,6 +84,13 @@ export const addWalletController = asyncHandler(async (req, res) => {
     createdAt: now,
     updatedAt: now,
   });
+
+  logUserActivity(
+    user.userId,
+    "Wallet Added",
+    `Added ${cryptoType} wallet address: ${wallet}`,
+    "success"
+  ).catch(console.error);
 
   return sendResponse(res, true, "Wallet added successfully", 201, newWallet);
 });
@@ -184,6 +192,13 @@ export const updateWalletController = asyncHandler(async (req, res) => {
     .set(updateFields)
     .commit();
 
+  logUserActivity(
+    user.userId,
+    "Wallet Updated",
+    `Updated ${updatedWallet.crypto} wallet address`,
+    "success"
+  ).catch(console.error);
+
   return sendResponse(res, true, "Wallet updated successfully", 200, updatedWallet);
 });
 
@@ -210,6 +225,13 @@ export const deleteWalletController = asyncHandler(async (req, res) => {
   }
 
   await client.delete(id);
+
+  logUserActivity(
+    user.userId,
+    "Wallet Deleted",
+    `Deleted ${wallet.crypto} wallet address`,
+    "success"
+  ).catch(console.error);
 
   return sendResponse(res, true, "Wallet deleted successfully", 200);
 });

@@ -2,6 +2,7 @@ import { client } from "../../lib/sanity.js";
 import { asyncHandler } from "../../lib/asyncHandler.js";
 import { sendResponse } from "../../lib/response.js";
 import { uploadImage } from "../../lib/uploadImage.js";
+import { logUserActivity } from "../../lib/logUserActivity.js";
 
 // GET - Fetch logged-in user's details
 export const getUserProfileController = asyncHandler(async (req, res) => {
@@ -69,6 +70,13 @@ export const updateUserProfileController = asyncHandler(async (req, res) => {
         updatedAt: new Date().toISOString(),
       })
       .commit();
+
+    logUserActivity(
+      userId,
+      "Profile Updated",
+      "Profile image updated successfully",
+      "success"
+    ).catch(console.error);
 
     return sendResponse(res, true, "Profile image updated successfully", 200, {
       image: updatedUser.image,

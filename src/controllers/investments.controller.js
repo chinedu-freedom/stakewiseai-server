@@ -9,6 +9,7 @@ import { getUserAndPlan } from "../lib/helpers/investment/getUserAndPlan.js";
 import { validateInvestmentEligibility } from "../lib/helpers/investment/validateInvestmentEligibility.js";
 import { createInvestmentRecord } from "../lib/helpers/investment/createInvestmentRecord.js";
 import { validateInvestmentInput } from "../lib/helpers/investment/validateInvestmentInput.js";
+import { logUserActivity } from "../lib/logUserActivity.js";
 
 
 /**
@@ -78,6 +79,13 @@ export const createInvestmentHandler = asyncHandler(async (req, res) => {
   );
 
   if (investmentResponse.success) {
+    logUserActivity(
+      userId,
+      "Investment Created",
+      `Invested $${amount} in ${plan.title} plan`,
+      "success"
+    ).catch(console.error);
+
     return sendResponse(
       res,
       true,
@@ -86,6 +94,13 @@ export const createInvestmentHandler = asyncHandler(async (req, res) => {
       investmentResponse.data
     );
   }
+
+  logUserActivity(
+    userId,
+    "Investment Failed",
+    investmentResponse.error || "Failed to create investment record",
+    "error"
+  ).catch(console.error);
 
   return sendResponse(
     res,

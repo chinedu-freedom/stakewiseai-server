@@ -6,6 +6,7 @@ import { client } from "../lib/sanity.js";
 import { getPaginationParams, buildPaginationMeta } from "../lib/pagination.js";
 import { v4 as uuidv4 } from "uuid";
 import { sendDepositNotificationEmail } from "../lib/mailer.js";
+import { logUserActivity } from "../lib/logUserActivity.js";
 
 // ─── OxaPay merchant static USDT TRC20 address ───────────────────────────────
 // Replace with your actual OxaPay merchant address or upgrade to dynamic invoices
@@ -192,6 +193,13 @@ export const notifyOxapayPaymentHandler = asyncHandler(async (req, res) => {
     date: now,
   }).catch((err) => console.error("OXAPAY_USER_EMAIL_ERR:", err));
 
+  logUserActivity(
+    userId,
+    "Deposit Notification",
+    `Notified deposit of $${amount} via ${cryptoLabel}`,
+    "info"
+  ).catch(console.error);
+
   return sendResponse(res, true, "Payment notification recorded. Your balance will be credited after confirmation.", 201, { depositId });
 });
 
@@ -234,12 +242,27 @@ export const oxapayWebhookHandler = asyncHandler(async (req, res) => {
     return res.status(200).json({ ok: true });
   }
 
-  // Approve the deposit and credit the user's accountBalance
-  await client
-    .transaction()
+  // Approve the deposit, credit the user's accountBalance, and grant free spins (1 for every $100)
+  const freeSpinsToGrant = Math.floor(paidAmount / 100);
+
+  const tx = client.transaction()
     .patch(pendingDeposit._id, (p) => p.set({ status: "approved" }))
-    .patch(pendingDeposit.user._ref, (p) => p.inc({ accountBalance: paidAmount }))
-    .commit();
+    .patch(pendingDeposit.user._ref, (p) => {
+      const patches = p.inc({ accountBalance: paidAmount });
+      if (freeSpinsToGrant > 0) {
+        patches.inc({ freeSpins: freeSpinsToGrant });
+      }
+      return patches;
+    });
+
+  await tx.commit();
+
+  logUserActivity(
+    pendingDeposit.user._ref,
+    "Deposit Confirmed",
+    `Deposit of $${paidAmount} confirmed and credited to account balance`,
+    "success"
+  ).catch(console.error);
 
   console.log(`OXAPAY_WEBHOOK: Credited $${paidAmount} to user ${pendingDeposit.user._ref}`);
   return res.status(200).json({ ok: true });

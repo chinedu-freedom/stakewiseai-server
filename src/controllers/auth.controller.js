@@ -21,6 +21,7 @@ import {
   hashPassword
 } from "../lib/auth.js";
 import { findUserByEmail } from "../lib/findUserByEmail.js";
+import { logUserActivity } from "../lib/logUserActivity.js";
 
 
 export const register = asyncHandler(async (req, res) => {
@@ -176,6 +177,14 @@ export const register = asyncHandler(async (req, res) => {
     name: username,
   }).catch((err) => console.error("WELCOME_EMAIL_FAILED:", err));
 
+  // Log activity
+  logUserActivity(
+    newUser._id,
+    "Registration",
+    "Account created successfully",
+    "success"
+  ).catch(console.error);
+
   return sendResponse(res, true, "Account created successfully", 201, {
     userId: newUser._id,
     email: newUser.email,
@@ -214,6 +223,14 @@ export const login = asyncHandler(async (req, res) => {
   );
 
   if (!user || !passwordMatch) {
+    if (user) {
+      logUserActivity(
+        user._id,
+        "Login Failed",
+        "Invalid password attempt",
+        "error"
+      ).catch(console.error);
+    }
     return sendResponse(res, false, "Invalid email or password", 401);
   }
 
@@ -224,6 +241,13 @@ export const login = asyncHandler(async (req, res) => {
   const accessToken = generateToken(user._id, user.role, {
     expiresIn: keepMeLoggedIn ? "24h" : "1h",
   });
+
+  logUserActivity(
+    user._id,
+    "Login",
+    "User logged in successfully",
+    "success"
+  ).catch(console.error);
 
   return sendResponse(res, true, "Login successful", 200, {
     userId: user._id,
@@ -238,6 +262,8 @@ export const login = asyncHandler(async (req, res) => {
 });
 
 export const logout = asyncHandler(async (req, res) => {
+  // If we had a middleware setting req.user, we could log it here
+  // For now, logout is simple. If we want to log, we need the userId.
   return sendResponse(res, true, "Logout successful", 200);
 });
 
@@ -300,6 +326,13 @@ export const forgotPassword = asyncHandler(async (req, res) => {
   ).catch((err) => {
     console.error("Failed to send OTP email:", err);
   });
+
+  logUserActivity(
+    user._id,
+    "OTP Requested",
+    "Password reset OTP sent to email",
+    "info"
+  ).catch(console.error);
 
   return sendResponse(
     res,
@@ -377,6 +410,13 @@ export const resetPassword = asyncHandler(async (req, res) => {
   ).catch((err) => {
     console.error("Failed to send reset confirmation email:", err);
   });
+
+  logUserActivity(
+    user._id,
+    "Password Reset",
+    "Password successfully reset via OTP",
+    "success"
+  ).catch(console.error);
 
   return sendResponse(res, true, "Password reset successful");
 });

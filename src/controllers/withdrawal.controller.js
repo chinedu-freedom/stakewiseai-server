@@ -4,6 +4,7 @@ import { createWithdrawal } from "../lib/helpers/withdrawal/createWithdrawal.js"
 import { client } from "../lib/sanity.js";
 import { getPaginationParams, buildPaginationMeta } from "../lib/pagination.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
+import { logUserActivity } from "../lib/logUserActivity.js";
 
 export const createWithdrawalHandler = asyncHandler(async (req, res) => {
   const { user } = req; // attached by withAuth / withKycAuth
@@ -12,6 +13,13 @@ export const createWithdrawalHandler = asyncHandler(async (req, res) => {
   if (prep?.error) return;
 
   const createdWithdrawal = await createWithdrawal(prep);
+
+  logUserActivity(
+    user._id,
+    "Withdrawal Request",
+    `Requested withdrawal of $${prep.amount} via ${prep.method}`,
+    "info"
+  ).catch(console.error);
 
   return sendResponse(
     res,

@@ -1,9 +1,10 @@
 import { client } from "../lib/sanity.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { sendResponse } from "../lib/response.js";
+import { logUserActivity } from "../lib/logUserActivity.js";
 import { v4 as uuid } from "uuid";
 
-const SPIN_COST = 10;
+const SPIN_COST = 20;
 
 /**
  * 🎡 Wheel segments — must match the frontend wheel UI exactly.
@@ -24,8 +25,8 @@ const WHEEL_RESULTS = [
   { value: 5,    label: "5 USDT",    weight: 10 },
   { value: 10,   label: "10 USDT",   weight: 8  },
   { value: 15,   label: "15 USDT",   weight: 5  },
-  { value: 20,   label: "20 USDT",   weight: 2  },
-  { value: 0,    label: "GOOD LUCK", weight: 25 }, // 0 reward — just a miss
+  { value: 18,   label: "18 USDT",   weight: 2  },
+  { value: 0,    label: "GOOD LUCK", weight: 25 }, // 0 reward
 ];
 
 /**
@@ -141,6 +142,13 @@ export const spinWheelController = asyncHandler(async (req, res) => {
     }`,
     { userId }
   );
+
+  logUserActivity(
+    userId,
+    "Wheel Spin",
+    `Spun the wheel (${usingFreeSpin ? "Free Spin" : "Cost $20"}) and won ${outcome.label}`,
+    reward > 0 ? "success" : "info"
+  ).catch(console.error);
 
   return sendResponse(res, true, "Spin successful", 200, {
     reward,
