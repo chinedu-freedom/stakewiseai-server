@@ -17,7 +17,8 @@ export async function getUserAndPlan(userId, planId) {
         maxDeposit,
         dailyProfit,
         contractDuration,
-        isFixedDeposit
+        isFixedDeposit,
+        planLevel
       }`,
       { planId }
     ),

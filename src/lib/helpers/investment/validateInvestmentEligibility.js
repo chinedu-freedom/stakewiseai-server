@@ -30,21 +30,37 @@ export async function validateInvestmentEligibility(
     };
   }
 
-  // 🚫 Prevent duplicate active investment in same plan
-  const existingInvestment = await client.fetch(
-    `*[_type == "userInvestment"
-      && user._ref == $userId
-      && plan._ref == $planId
-      && status == "active"][0]`,
-    { userId, planId }
-  );
-
   if (existingInvestment) {
     return {
       success: false,
       message: "You already have an active investment in this plan.",
       status: 400,
     };
+  }
+
+  // 📈 Hierarchical Level Check
+  const currentPlanLevel = Number(plan.planLevel || 1);
+
+  if (currentPlanLevel > 1) {
+    // Check if the user has EVER had a successful or active investment in a plan with level < currentLevel
+    // Specifically, we check for level = currentLevel - 1 to ensure they don't skip steps
+    const previousLevelPlan = await client.fetch(
+      `*[_type == "userInvestment" 
+        && user._ref == $userId 
+        && plan->planLevel == $prevLevel][0]`,
+      { 
+        userId, 
+        prevLevel: currentPlanLevel - 1 
+      }
+    );
+
+    if (!previousLevelPlan) {
+      return {
+        success: false,
+        message: `You must invest in a Level ${currentPlanLevel - 1} plan before you can access this Level ${currentPlanLevel} plan.`,
+        status: 403,
+      };
+    }
   }
 
   return {
