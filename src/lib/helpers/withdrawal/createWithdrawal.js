@@ -6,7 +6,10 @@ export async function createWithdrawal({
   userId,
   userData,
   amount,
+  fee,
+  netAmount,
   wallet,
+  crypto,
 }) {
   const withdrawalId = uuidv4();
   const now = new Date().toISOString();
@@ -15,8 +18,10 @@ export async function createWithdrawal({
     _id: withdrawalId,
     _type: "withdrawal",
     user: { _type: "reference", _ref: userId },
-    crypto: "USDT",
+    crypto: crypto,
     amount,
+    fee,
+    netAmount,
     walletAddress: wallet,
     status: "pending",
     requestedAt: now,
@@ -33,14 +38,13 @@ export async function createWithdrawal({
     .create(newWithdrawal)
     .commit();
 
-  // Fix undefined variable bug
-  const crypto = "USDT";
-
   sendWithdrawalNotificationEmail({
     email: userData.email,
     name: userData.username || "User",
     crypto,
     amount,
+    fee,
+    netAmount,
     walletAddress: wallet,
     status: "Pending",
     date: now,
@@ -52,6 +56,8 @@ export async function createWithdrawal({
     name: "Admin",
     crypto,
     amount,
+    fee,
+    netAmount,
     walletAddress: wallet,
     status: "Pending",
     date: now,
@@ -63,6 +69,9 @@ export async function createWithdrawal({
   return {
     _id: withdrawalId,
     amount,
+    fee,
+    netAmount,
+    crypto,
     walletAddress: wallet,
     status: "pending",
     requestedAt: now,

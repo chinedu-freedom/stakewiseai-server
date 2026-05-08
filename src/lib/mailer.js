@@ -233,7 +233,9 @@ export async function sendWithdrawalNotificationEmail({ email, name, crypto, amo
     ${message}
     <table style="width:100%; border-collapse: collapse; margin:20px 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
       <tr style="background-color:#f0f4f8;"><td style="padding:12px; border:1px solid #e5e7eb; font-weight: 600;">Crypto</td><td style="padding:12px; border:1px solid #e5e7eb;">${crypto}</td></tr>
-      <tr><td style="padding:12px; border:1px solid #e5e7eb; font-weight: 600;">Amount (USD)</td><td style="padding:12px; border:1px solid #e5e7eb;">$${amount}</td></tr>
+      <tr><td style="padding:12px; border:1px solid #e5e7eb; font-weight: 600;">Requested Amount</td><td style="padding:12px; border:1px solid #e5e7eb;">$${amount}</td></tr>
+      <tr style="background-color:#f0f4f8;"><td style="padding:12px; border:1px solid #e5e7eb; font-weight: 600;">Withdrawal Fee (6%)</td><td style="padding:12px; border:1px solid #e5e7eb; color: #ef4444;">-$${fee?.toFixed(2)}</td></tr>
+      <tr><td style="padding:12px; border:1px solid #e5e7eb; font-weight: 600; color: #10b981;">Net Amount to Send</td><td style="padding:12px; border:1px solid #e5e7eb; font-weight: 800; color: #10b981;">$${netAmount?.toFixed(2)}</td></tr>
       <tr style="background-color:#f0f4f8;"><td style="padding:12px; border:1px solid #e5e7eb; font-weight: 600;">Wallet Address</td><td style="padding:12px; border:1px solid #e5e7eb; word-break: break-word; font-size: 13px;">${walletAddress}</td></tr>
       <tr><td style="padding:12px; border:1px solid #e5e7eb; font-weight: 600;">Status</td><td style="padding:12px; border:1px solid #e5e7eb; color: #4f8cff; font-weight: 700;">${status.charAt(0).toUpperCase() + status.slice(1)}</td></tr>
       <tr style="background-color:#f0f4f8;"><td style="padding:12px; border:1px solid #e5e7eb; font-weight: 600;">Date</td><td style="padding:12px; border:1px solid #e5e7eb;">${new Date(date).toLocaleString()}</td></tr>

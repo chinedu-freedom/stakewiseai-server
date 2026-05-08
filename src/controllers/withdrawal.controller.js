@@ -17,7 +17,7 @@ export const createWithdrawalHandler = asyncHandler(async (req, res) => {
   logUserActivity(
     user._id,
     "Withdrawal Request",
-    `Requested withdrawal of $${prep.amount} via ${prep.method}`,
+    `Requested withdrawal of $${prep.amount} via ${prep.crypto}`,
     "info"
   ).catch(console.error);
 
@@ -87,15 +87,11 @@ export const getWithdrawalLimitsController = asyncHandler(async (req, res) => {
 
   const availableProfit = Number(userData.availableProfit) || 0;
   const MIN_WITHDRAWAL = 20;
-  const MAX_WITHDRAWAL = 100;
-  const DAILY_WITHDRAWAL_LIMIT = 100;
-  const MAX_DAILY_WITHDRAWALS = 5;
-  const MAX_WEEKLY_WITHDRAWALS = 20;
+  const MAX_DAILY_WITHDRAWALS = 1;
+  const WITHDRAWAL_FEE_PERCENT = 6;
 
   const now = new Date();
   const startOfDay = new Date(now).setHours(0, 0, 0, 0);
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - 7);
 
   const stats = await client.fetch(
     `{
@@ -103,52 +99,21 @@ export const getWithdrawalLimitsController = asyncHandler(async (req, res) => {
         _type=="withdrawal" &&
         user._ref==$userId &&
         requestedAt >= $startOfDay
-      ]),
-      "dailyTotal": sum(*[
-        _type=="withdrawal" &&
-        user._ref==$userId &&
-        requestedAt >= $startOfDay
-      ].amount),
-      "weeklyCount": count(*[
-        _type=="withdrawal" &&
-        user._ref==$userId &&
-        requestedAt >= $startOfWeek
       ])
     }`,
     { 
       userId, 
-      startOfDay: new Date(startOfDay).toISOString(),
-      startOfWeek: startOfWeek.toISOString()
+      startOfDay: new Date(startOfDay).toISOString()
     }
   );
 
   const dailyCount = stats?.dailyCount || 0;
-  const dailyTotal = stats?.dailyTotal || 0;
-  const weeklyCount = stats?.weeklyCount || 0;
-
-  const remainingDailyLimit = Math.max(
-    0,
-    DAILY_WITHDRAWAL_LIMIT - dailyTotal
-  );
-
-  const remainingWeeklyCount = Math.max(
-    0,
-    MAX_WEEKLY_WITHDRAWALS - weeklyCount
-  );
 
   return sendResponse(res, true, "Withdrawal limits fetched", 200, {
     minWithdrawal: MIN_WITHDRAWAL,
-    maxWithdrawal: MAX_WITHDRAWAL,
-    maxDailyLimit: DAILY_WITHDRAWAL_LIMIT,
     maxDailyWithdrawals: MAX_DAILY_WITHDRAWALS,
-    maxWeeklyWithdrawals: MAX_WEEKLY_WITHDRAWALS,
-
-    dailyTotal,
+    withdrawalFeePercent: WITHDRAWAL_FEE_PERCENT,
     dailyCount,
-    weeklyCount,
-    remainingDailyLimit,
-    remainingWeeklyCount,
-
     availableProfit,
   });
 });
