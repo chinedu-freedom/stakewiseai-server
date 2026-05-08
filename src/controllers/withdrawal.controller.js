@@ -137,7 +137,6 @@ export const getWithdrawalLimitsController = asyncHandler(async (req, res) => {
   );
 
   return sendResponse(res, true, "Withdrawal limits fetched", 200, {
-    vipLevel: userData.vipLevel || "Standard",
     minWithdrawal: MIN_WITHDRAWAL,
     maxWithdrawal: MAX_WITHDRAWAL,
     maxDailyLimit: DAILY_WITHDRAWAL_LIMIT,

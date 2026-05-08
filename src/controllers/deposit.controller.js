@@ -206,64 +206,84 @@ export const notifyOxapayPaymentHandler = asyncHandler(async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/deposits/oxapay-webhook
 // Called by OxaPay when a payment is confirmed on the blockchain.
-// Updates deposit status to 'approved' and credits the user's accountBalance.
+// Updates deposit status to 'successful' and credits the user's accountBalance.
 // ─────────────────────────────────────────────────────────────────────────────
 export const oxapayWebhookHandler = asyncHandler(async (req, res) => {
   const payload = req.body;
+  console.log("OXAPAY_WEBHOOK_RECEIVED:", JSON.stringify(payload));
 
-  // OxaPay sends status 1 = waiting, 2 = confirmed, 3 = expired
-  if (payload?.status !== 2) {
-    return res.status(200).json({ ok: true }); // acknowledge non-confirmed events
+  // OxaPay sends status: 1 = waiting, 2 = confirmed, 3 = expired
+  // Using loose equality or Number() to handle both string and number
+  const status = Number(payload?.status);
+  if (status === 3) {
+    console.warn(`OXAPAY_WEBHOOK: Payment expired/failed for TrackId: ${payload.trackId}`);
+    return res.status(200).json({ ok: true });
+  }
+
+  if (status !== 2) {
+    console.log(`OXAPAY_WEBHOOK: Ignoring status ${payload?.status}`);
+    return res.status(200).json({ ok: true });
   }
 
   const paidAmount = Number(payload.amount) || 0;
   const trackId   = payload.trackId || "";
+  const currency  = payload.currency || "USDT";
+
+  console.log(`OXAPAY_WEBHOOK: Processing confirmed payment: $${paidAmount} ${currency} (TrackId: ${trackId})`);
 
   // Find the pending deposit by trackId or amount (best effort matching)
   let pendingDeposit = null;
 
   if (trackId) {
     pendingDeposit = await client.fetch(
-      `*[_type == "deposit" && status == "pending" && method == "oxapay" && trackId == $trackId] | order(_createdAt desc) [0]{ _id, user }`,
+      `*[_type == "deposit" && status == "pending" && method == "oxapay" && trackId == $trackId] | order(_createdAt desc) [0]{ _id, user, amount }`,
       { trackId }
     );
   }
 
-  // Fallback if trackId is missing or no deposit is found (e.g., older static deposits)
+  // Fallback if trackId is missing or no deposit is found (e.g., static address deposits)
   if (!pendingDeposit) {
+    console.log(`OXAPAY_WEBHOOK: No deposit found by trackId, trying amount match: ${paidAmount}`);
     pendingDeposit = await client.fetch(
-      `*[_type == "deposit" && status == "pending" && method == "oxapay" && amount == $amount] | order(_createdAt desc) [0]{ _id, user }`,
+      `*[_type == "deposit" && status == "pending" && method == "oxapay" && amount == $amount] | order(_createdAt desc) [0]{ _id, user, amount }`,
       { amount: paidAmount }
     );
   }
 
   if (!pendingDeposit) {
-    console.warn("OXAPAY_WEBHOOK: No matching deposit found for amount", paidAmount);
+    console.warn("OXAPAY_WEBHOOK_ERROR: No matching pending deposit found for amount", paidAmount, "and TrackID", trackId);
     return res.status(200).json({ ok: true });
   }
 
-  // Approve the deposit, credit the user's accountBalance, and grant free spins (1 for every $100)
-  const freeSpinsToGrant = Math.floor(paidAmount / 100);
+  if (!pendingDeposit.user || !pendingDeposit.user._ref) {
+    console.error("OXAPAY_WEBHOOK_ERROR: Deposit found but user reference is missing", pendingDeposit);
+    return res.status(200).json({ ok: true });
+  }
 
-  const tx = client.transaction()
-    .patch(pendingDeposit._id, (p) => p.set({ status: "approved" }))
-    .patch(pendingDeposit.user._ref, (p) => {
-      const patches = p.inc({ accountBalance: paidAmount });
-      if (freeSpinsToGrant > 0) {
-        patches.inc({ freeSpins: freeSpinsToGrant });
-      }
-      return patches;
-    });
+  // Approve the deposit and credit the user's accountBalance
+  try {
+    const tx = client.transaction()
+      .patch(pendingDeposit._id, (p) => p.set({ 
+        status: "successful",
+        updatedAt: new Date().toISOString(),
+        notes: `Confirmed via OxaPay Webhook (TrackId: ${trackId})`
+      }))
+      .patch(pendingDeposit.user._ref, (p) => p.inc({ accountBalance: paidAmount }));
 
-  await tx.commit();
+    await tx.commit();
 
-  logUserActivity(
-    pendingDeposit.user._ref,
-    "Deposit Confirmed",
-    `Deposit of $${paidAmount} confirmed and credited to account balance`,
-    "success"
-  ).catch(console.error);
+    logUserActivity(
+      pendingDeposit.user._ref,
+      "Deposit Confirmed",
+      `Deposit of $${paidAmount} ${currency} confirmed and credited to account balance`,
+      "success"
+    ).catch(console.error);
 
-  console.log(`OXAPAY_WEBHOOK: Credited $${paidAmount} to user ${pendingDeposit.user._ref}`);
+    console.log(`OXAPAY_WEBHOOK_SUCCESS: Credited $${paidAmount} to user ${pendingDeposit.user._ref}`);
+  } catch (err) {
+    console.error("OXAPAY_WEBHOOK_TRANSACTION_ERROR:", err);
+    throw err; 
+  }
+
   return res.status(200).json({ ok: true });
 });
