@@ -137,7 +137,7 @@ export const notifyOxapayPaymentHandler = asyncHandler(async (req, res) => {
   const amount = Number(amountRaw);
 
   if (!amount || isNaN(amount) || amount < 100) {
-    return sendResponse(res, false, "Minimum deposit is $100", 400);
+    return sendResponse(res, false, "Minimum deposit is $2", 400);
   }
 
   // Fetch user info
