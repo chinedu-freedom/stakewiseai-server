@@ -79,7 +79,7 @@ export async function createInvestmentRecord(
     const payouts = [
       { user: level1, percent: 0.10, level: 1 },
       { user: level2, percent: 0.05, level: 2 },
-      { user: level3, percent: 0.02, level: 3 },
+      { user: level3, percent: 0.01, level: 3 },
     ];
 
     for (const p of payouts) {

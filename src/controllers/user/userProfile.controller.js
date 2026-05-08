@@ -28,6 +28,7 @@ export const getUserProfileController = asyncHandler(async (req, res) => {
     totalProfit,
     reservedProfit,
     emailVerified,
+    referralRewards,
     _createdAt
   }`;
 
@@ -38,9 +39,16 @@ export const getUserProfileController = asyncHandler(async (req, res) => {
   // Compute availableProfit dynamically
   const availableProfit = (currentUser.totalProfit || 0) - (currentUser.reservedProfit || 0);
 
+  // Compute totalReferralEarnings
+  const totalReferralEarnings = (currentUser.referralRewards || []).reduce(
+    (sum, reward) => sum + (reward.amount || 0),
+    0
+  );
+
   return sendResponse(res, true, "User details fetched successfully", 200, {
     ...currentUser,
     availableProfit,
+    totalReferralEarnings,
   });
 });
 
