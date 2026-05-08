@@ -11,7 +11,6 @@ import investmentRoutes from "./routes/investment.routes.js";
 import userInvestmentRoutes from "./routes/user/investment.routes.js";
 import vipRoutes from "./routes/vip.routes.js";
 import userRoutes from "./routes/user/user.routes.js";
-import spinRoutes from "./routes/spin.routes.js";
 import { startInvestmentScheduler } from "./job/planScheduler.js";
 
 const app = express();
@@ -46,7 +45,6 @@ app.use("/api/deposits", depositRoutes);
 app.use("/api/investment", investmentRoutes);
 app.use("/api/users/investments", userInvestmentRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/spin", spinRoutes);
 
 // 404 handler
 app.use((req, res) => {

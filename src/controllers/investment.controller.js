@@ -10,7 +10,7 @@ export const getPlansHandler = asyncHandler(async (req, res) => {
 
   const plansQuery = `*[
     ${whereClause}
-  ] | order(createdAt desc) [${start}...${end}]{
+  ] | order(createdAt asc) [${start}...${end}]{
     _id,
     title,
     minDeposit,
