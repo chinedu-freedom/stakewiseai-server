@@ -57,6 +57,12 @@ export async function createInvestmentRecord(
     /**
      * 🔥 3. REFERRAL PAYOUT LOGIC
      */
+    // Fetch Referral Configuration
+    const referralConfig = await client.fetch(`*[_type == "referralConfig"][0]`);
+    const level1Percent = (referralConfig?.level1 || 10) / 100;
+    const level2Percent = (referralConfig?.level2 || 5) / 100;
+    const level3Percent = (referralConfig?.level3 || 1) / 100;
+
     const referralChain = await client.fetch(
       `*[_type == "user" && _id == $userId][0]{
         referredBy->{
@@ -77,9 +83,9 @@ export async function createInvestmentRecord(
     const level3 = level2?.referredBy;
 
     const payouts = [
-      { user: level1, percent: 0.10, level: 1 },
-      { user: level2, percent: 0.05, level: 2 },
-      { user: level3, percent: 0.01, level: 3 },
+      { user: level1, percent: level1Percent, level: 1 },
+      { user: level2, percent: level2Percent, level: 2 },
+      { user: level3, percent: level3Percent, level: 3 },
     ];
 
     for (const p of payouts) {
