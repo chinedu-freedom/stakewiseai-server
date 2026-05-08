@@ -131,5 +131,4 @@ export async function createInvestmentRecord(
   }
 }
 
-
-// i want us to only have one backend which is this https://stakewiseai-server.onrender.com remove everything that has to do with this https://neo-invest-server.onrender.com/api backend and replace it with https://stakewiseai-server.onrender.com,  this is the backend we are using
+
