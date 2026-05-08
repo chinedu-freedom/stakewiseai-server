@@ -6,6 +6,7 @@ import {
   updateUserProfileController,
 } from "../../controllers/user/userProfile.controller.js";
 import { getReferralsController } from "../../controllers/user/userReferrals.controllers.js";
+import { getReferralConfigController } from "../../controllers/user/referralConfig.controller.js";
 import { changePasswordController } from "../../controllers/user/changePassword.controller.js";
 import { upload } from "../../middlewares/upload.js";
 
@@ -13,6 +14,7 @@ const router = express.Router();
 
 router.get("/dashboard-stats", withAuth, getDashboardStatsController);
 router.get("/me", withAuth, getUserProfileController);
+router.get("/referral-config", getReferralConfigController);
 router.patch(
   "/me",
   withAuth,
