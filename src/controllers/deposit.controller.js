@@ -100,6 +100,8 @@ export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
           trackId: json.trackId,
           dynamic: true,
         });
+      } else {
+        console.error("OXAPAY_API_REJECTED:", json);
       }
     } catch (err) {
       console.error("OXAPAY_INVOICE_ERROR:", err);
