@@ -59,7 +59,7 @@ export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
 
     try {
       const { userId } = req.user;
-      const invoiceRes = await fetch("https://api.oxapay.com/merchants/request/invoice", {
+      const invoiceRes = await fetch("https://api.oxapay.com/merchants/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
