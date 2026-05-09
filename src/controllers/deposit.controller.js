@@ -1,5 +1,3 @@
-import { validateAndPrepareDeposit } from "../lib/helpers/deposit/validateAndPrepareDeposit.js";
-import { createDeposit } from "../lib/helpers/deposit/createDeposit.js";
 import { sendResponse } from "../lib/response.js";
 import { asyncHandler } from "../lib/asyncHandler.js";
 import { client } from "../lib/sanity.js";
@@ -7,27 +5,11 @@ import { getPaginationParams, buildPaginationMeta } from "../lib/pagination.js";
 import { v4 as uuidv4 } from "uuid";
 import { sendDepositNotificationEmail } from "../lib/mailer.js";
 import { logUserActivity } from "../lib/logUserActivity.js";
+import crypto from "crypto";
 
-// ─── OxaPay merchant static USDT TRC20 address ───────────────────────────────
-// Replace with your actual OxaPay merchant address or upgrade to dynamic invoices
-// via the OxaPay Invoice API: POST https://api.oxapay.com/merchants/request/invoice
+// ─── OxaPay configuration ────────────────────────────────────────────────────
 const OXAPAY_STATIC_ADDRESS = process.env.OXAPAY_STATIC_ADDRESS || "TFoPJE6H5uHWV7X69EMavqyUxF9B1HnmwY";
 const OXAPAY_MERCHANT_KEY   = process.env.OXAPAY_MERCHANT_KEY   || "";
-
-export const createDepositHandler = async (req, res, next) => {
-  try {
-    const { user } = req;
-
-    const prep = await validateAndPrepareDeposit(req, user, res);
-    if (!prep) return; // response already sent
-
-    const createdFund = await createDeposit(prep);
-
-    return sendResponse(res, true, "Deposit created successfully", 201, createdFund);
-  } catch (error) {
-    next(error);
-  }
-};
 
 export const getDepositHistoryHandler = asyncHandler(async (req, res) => {
   const { page, limit, start, end } = getPaginationParams(req);
@@ -67,7 +49,7 @@ export const getDepositHistoryHandler = asyncHandler(async (req, res) => {
 // Falls back to the merchant static addresses otherwise.
 // ─────────────────────────────────────────────────────────────────────────────
 export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
-  const { currency = "USDT", network = "TRC20" } = req.query;
+  const { currency = "USDT", network = "TRC20", amount } = req.body;
 
   // If a merchant API key is configured, create a dynamic OxaPay invoice
   if (OXAPAY_MERCHANT_KEY) {
@@ -76,6 +58,7 @@ export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
     if (oxapayNetwork === 'litecoin') oxapayNetwork = 'ltc';
 
     try {
+      const { userId } = req.user;
       const invoiceRes = await fetch("https://api.oxapay.com/merchants/request/invoice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -83,8 +66,8 @@ export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
           merchant: OXAPAY_MERCHANT_KEY,
           currency: currency.toUpperCase(),
           network: oxapayNetwork,
-          // amount: null means 'open amount' — customer can send any value
-          lifeTime: 60, // minutes
+          amount: amount || null, // amount is optional for open invoices
+          lifeTime: 60,
           feePaidByPayer: 0,
           underPaidCover: 2.5,
           callbackUrl: `${process.env.BACKEND_URL || "https://stakewiseai-server.onrender.com"}/api/deposits/oxapay-webhook`,
@@ -93,7 +76,25 @@ export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
         }),
       });
       const json = await invoiceRes.json();
+      
       if (json.result === 100 && json.payAddress) {
+        // CREATE PENDING DEPOSIT RECORD IMMEDIATELY
+        const depositId = uuidv4();
+        const now = new Date().toISOString();
+        
+        await client.create({
+          _id: depositId,
+          _type: "deposit",
+          user: { _type: "reference", _ref: userId },
+          crypto: currency.toUpperCase(),
+          network: network,
+          amount: Number(amount) || 0,
+          status: "pending",
+          fundedAt: now,
+          notes: "Awaiting payment",
+          trackId: String(json.trackId),
+        });
+
         return sendResponse(res, true, "OxaPay address generated", 200, {
           address: json.payAddress,
           trackId: json.trackId,
@@ -133,7 +134,7 @@ export const notifyOxapayPaymentHandler = asyncHandler(async (req, res) => {
   const { userId } = req.user || {};
   if (!userId) return sendResponse(res, false, "Unauthorized", 401);
 
-  const { amount: amountRaw, crypto = "USDT", network = "TRC20", trackId } = req.body;
+  const { amount: amountRaw, crypto: cryptoRaw = "USDT", network = "TRC20", trackId } = req.body;
   const amount = Number(amountRaw);
 
   if (!amount || isNaN(amount) || amount < 2) {
@@ -151,25 +152,49 @@ export const notifyOxapayPaymentHandler = asyncHandler(async (req, res) => {
     return sendResponse(res, false, "Your account is not active", 403);
   }
 
-  const depositId = uuidv4();
   const now = new Date().toISOString();
+  const crypto = cryptoRaw.toUpperCase();
   const cryptoLabel = `${crypto} (${network})`;
 
-  // Create a pending deposit record
-  const newDeposit = {
-    _id: depositId,
-    _type: "deposit",
-    user: { _type: "reference", _ref: userId },
-    crypto: cryptoLabel,
-    amount,
-    status: "pending",
-    fundedAt: now,
-    method: "oxapay",
-    notes: "Awaiting blockchain confirmation via OxaPay",
-    trackId: trackId || null,
-  };
+  // UPDATE the existing pending deposit record (created in getOxapayAddressHandler)
+  // instead of creating a duplicate
+  let depositId = null;
 
-  await client.create(newDeposit);
+  if (trackId) {
+    const existing = await client.fetch(
+      `*[_type == "deposit" && trackId == $trackId && status == "pending" && user._ref == $userId][0]{ _id }`,
+      { trackId: String(trackId), userId }
+    );
+
+    if (existing) {
+      // Update the existing record with the confirmed amount and notes
+      await client.patch(existing._id)
+        .set({
+          amount,
+          notes: "User confirmed payment sent — awaiting blockchain confirmation",
+          updatedAt: now,
+        })
+        .commit();
+      depositId = existing._id;
+    }
+  }
+
+  // If no existing record found (e.g. static address fallback), create a new one
+  if (!depositId) {
+    depositId = uuidv4();
+    await client.create({
+      _id: depositId,
+      _type: "deposit",
+      user: { _type: "reference", _ref: userId },
+      crypto,
+      network,
+      amount,
+      status: "pending",
+      fundedAt: now,
+      notes: "User confirmed payment sent — awaiting blockchain confirmation",
+      trackId: trackId || null,
+    });
+  }
 
   // Non-blocking email notifications
   sendDepositNotificationEmail({
@@ -210,10 +235,22 @@ export const notifyOxapayPaymentHandler = asyncHandler(async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 export const oxapayWebhookHandler = asyncHandler(async (req, res) => {
   const payload = req.body;
+  const signature = req.headers["x-oxapay-signature"];
+
   console.log("OXAPAY_WEBHOOK_RECEIVED:", JSON.stringify(payload));
 
+  // OPTIONAL: Verify signature if merchant key is available
+  if (OXAPAY_MERCHANT_KEY && signature) {
+    const hmac = crypto.createHmac("sha512", OXAPAY_MERCHANT_KEY);
+    const expectedSignature = hmac.update(JSON.stringify(payload)).digest("hex");
+    if (signature !== expectedSignature) {
+      console.error("OXAPAY_WEBHOOK_INVALID_SIGNATURE");
+      // Still return 200 to OxaPay to stop retries, but don't process
+      return res.status(200).json({ ok: false, error: "Invalid signature" });
+    }
+  }
+
   // OxaPay sends status: 1 = waiting, 2 = confirmed, 3 = expired
-  // Using loose equality or Number() to handle both string and number
   const status = Number(payload?.status);
   if (status === 3) {
     console.warn(`OXAPAY_WEBHOOK: Payment expired/failed for TrackId: ${payload.trackId}`);
@@ -226,7 +263,7 @@ export const oxapayWebhookHandler = asyncHandler(async (req, res) => {
   }
 
   const paidAmount = Number(payload.amount) || 0;
-  const trackId   = payload.trackId || "";
+  const trackId   = payload.trackId ? String(payload.trackId) : "";
   const currency  = payload.currency || "USDT";
 
   console.log(`OXAPAY_WEBHOOK: Processing confirmed payment: $${paidAmount} ${currency} (TrackId: ${trackId})`);
@@ -236,7 +273,7 @@ export const oxapayWebhookHandler = asyncHandler(async (req, res) => {
 
   if (trackId) {
     pendingDeposit = await client.fetch(
-      `*[_type == "deposit" && status == "pending" && method == "oxapay" && trackId == $trackId] | order(_createdAt desc) [0]{ _id, user, amount }`,
+      `*[_type == "deposit" && status == "pending" && trackId == $trackId] | order(_createdAt desc) [0]{ _id, user, amount }`,
       { trackId }
     );
   }
@@ -245,7 +282,7 @@ export const oxapayWebhookHandler = asyncHandler(async (req, res) => {
   if (!pendingDeposit) {
     console.log(`OXAPAY_WEBHOOK: No deposit found by trackId, trying amount match: ${paidAmount}`);
     pendingDeposit = await client.fetch(
-      `*[_type == "deposit" && status == "pending" && method == "oxapay" && amount == $amount] | order(_createdAt desc) [0]{ _id, user, amount }`,
+      `*[_type == "deposit" && status == "pending" && amount == $amount] | order(_createdAt desc) [0]{ _id, user, amount }`,
       { amount: paidAmount }
     );
   }
@@ -262,14 +299,18 @@ export const oxapayWebhookHandler = asyncHandler(async (req, res) => {
 
   // Approve the deposit and credit the user's accountBalance
   try {
+    // Use the actual paid amount from OxaPay (may differ slightly from requested)
+    const creditAmount = paidAmount || pendingDeposit.amount || 0;
+
     const tx = client.transaction()
       .patch(pendingDeposit._id, (p) => p.set({ 
         status: "successful",
+        amount: creditAmount,
         updatedAt: new Date().toISOString(),
         notes: `Confirmed via OxaPay Webhook (TrackId: ${trackId})`
       }))
       .patch(pendingDeposit.user._ref, (p) => 
-        p.setIfMissing({ accountBalance: 0 }).inc({ accountBalance: paidAmount })
+        p.setIfMissing({ accountBalance: 0 }).inc({ accountBalance: creditAmount })
       );
 
     await tx.commit();
