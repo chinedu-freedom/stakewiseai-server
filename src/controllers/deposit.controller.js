@@ -64,14 +64,11 @@ export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           merchant: OXAPAY_MERCHANT_KEY,
-          currency: currency.toUpperCase(),
+          amount: Number(amount),
+          payCurrency: currency.toUpperCase(),
           network: oxapayNetwork,
-          amount: amount || null, // amount is optional for open invoices
-          lifeTime: 60,
           feePaidByPayer: 0,
-          underPaidCover: 2.5,
           callbackUrl: `${process.env.BACKEND_URL || "https://stakewiseai-server.onrender.com"}/api/deposits/oxapay-webhook`,
-          returnUrl: `${process.env.FRONTEND_URL || ""}/index.html`,
           description: `GlobalStakeAI Deposit - ${currency.toUpperCase()} ${network}`,
         }),
       });
