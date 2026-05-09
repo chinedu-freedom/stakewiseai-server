@@ -268,9 +268,24 @@ export const oxapayWebhookHandler = asyncHandler(async (req, res) => {
         updatedAt: new Date().toISOString(),
         notes: `Confirmed via OxaPay Webhook (TrackId: ${trackId})`
       }))
-      .patch(pendingDeposit.user._ref, (p) => p.inc({ accountBalance: paidAmount }));
+      .patch(pendingDeposit.user._ref, (p) => 
+        p.setIfMissing({ accountBalance: 0 }).inc({ accountBalance: paidAmount })
+      );
 
     await tx.commit();
+
+    // Send success email to user
+    const userData = await client.fetch(`*[_id == $userId][0]{ email, username }`, { userId: pendingDeposit.user._ref });
+    if (userData) {
+      sendDepositNotificationEmail({
+        email: userData.email,
+        name: userData.username || "User",
+        crypto: currency,
+        amount: paidAmount,
+        status: "successful",
+        date: new Date().toISOString()
+      }).catch(console.error);
+    }
 
     logUserActivity(
       pendingDeposit.user._ref,

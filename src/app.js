@@ -1,7 +1,8 @@
 import express from "express";
+import multer from "multer";
+import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
-import cors from "cors";
 import authRoutes from "./routes/auth.routes.js";
 import walletRoutes from "./routes/wallet.routes.js";
 import withdrawalRoutes from "./routes/withdrawal.routes.js";
@@ -9,6 +10,7 @@ import depositRoutes from "./routes/deposit.routes.js";
 import investmentRoutes from "./routes/investment.routes.js";
 import userInvestmentRoutes from "./routes/user/investment.routes.js";
 import userRoutes from "./routes/user/user.routes.js";
+import webhookRoutes from "./routes/webhook.routes.js";
 import { startInvestmentScheduler } from "./job/planScheduler.js";
 
 const app = express();
@@ -42,6 +44,7 @@ app.use("/api/deposits", depositRoutes);
 app.use("/api/investment", investmentRoutes);
 app.use("/api/users/investments", userInvestmentRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/webhooks", webhookRoutes);
 
 // 404 handler
 app.use((req, res) => {
