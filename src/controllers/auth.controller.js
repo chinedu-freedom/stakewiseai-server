@@ -137,11 +137,15 @@ export const register = asyncHandler(async (req, res) => {
   .catch(console.error);
   }
 
+  // Get IP
+  const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
   const userData = {
     _type: "user",
     username,
     email: normalizedEmail,
     phoneNumber: formattedPhone,
+    lastKnownIp: userIp,
 
     countryISO,
     countryCode: countryCodeFinal,
@@ -241,6 +245,10 @@ export const login = asyncHandler(async (req, res) => {
   const accessToken = generateToken(user._id, user.role, {
     expiresIn: keepMeLoggedIn ? "24h" : "1h",
   });
+
+  // Get and update IP
+  const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  client.patch(user._id).set({ lastKnownIp: userIp }).commit().catch(console.error);
 
   logUserActivity(
     user._id,
