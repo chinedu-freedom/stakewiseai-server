@@ -59,7 +59,7 @@ export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
 
     try {
       const { userId } = req.user;
-      const invoiceRes = await fetch("https://api.oxapay.com/merchants/request", {
+      const invoiceRes = await fetch("https://api.oxapay.com/merchants/request/whitelabel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -77,7 +77,9 @@ export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
       });
       const json = await invoiceRes.json();
       
-      if (json.result === 100 && json.payAddress) {
+      const returnedAddress = json.payAddress || json.address;
+
+      if (json.result === 100 && returnedAddress) {
         // CREATE PENDING DEPOSIT RECORD IMMEDIATELY
         const depositId = uuidv4();
         const now = new Date().toISOString();
@@ -96,7 +98,7 @@ export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
         });
 
         return sendResponse(res, true, "OxaPay address generated", 200, {
-          address: json.payAddress,
+          address: returnedAddress,
           trackId: json.trackId,
           dynamic: true,
         });
