@@ -251,15 +251,17 @@ export const oxapayWebhookHandler = asyncHandler(async (req, res) => {
     }
   }
 
-  // OxaPay sends status: 1 = waiting, 2 = confirmed, 3 = expired
-  const status = Number(payload?.status);
-  if (status === 3) {
+  // OxaPay sends status: 1 = waiting, 2 = confirmed, 3 = expired (for invoices)
+  // For White-label/Static it sends strings: "Confirming", "Paid", "Expired"
+  const rawStatus = payload?.status;
+  
+  if (rawStatus === 3 || rawStatus === "Expired") {
     console.warn(`OXAPAY_WEBHOOK: Payment expired/failed for TrackId: ${payload.trackId}`);
     return res.status(200).json({ ok: true });
   }
 
-  if (status !== 2) {
-    console.log(`OXAPAY_WEBHOOK: Ignoring status ${payload?.status}`);
+  if (rawStatus !== 2 && rawStatus !== "Paid") {
+    console.log(`OXAPAY_WEBHOOK: Ignoring status ${rawStatus}`);
     return res.status(200).json({ ok: true });
   }
 
