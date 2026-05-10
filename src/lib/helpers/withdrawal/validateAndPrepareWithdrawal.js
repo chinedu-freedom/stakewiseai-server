@@ -37,7 +37,7 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
       email,
       totalProfit,
       reservedProfit,
-      "availableProfit": coalesce(availableProfit, coalesce(totalProfit, 0) - coalesce(reservedProfit, 0))
+      "availableProfit": coalesce(totalProfit, 0) - coalesce(reservedProfit, 0)
     }`,
     { userId }
   );
