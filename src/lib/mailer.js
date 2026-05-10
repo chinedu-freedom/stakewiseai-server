@@ -190,20 +190,30 @@ export async function sendPasswordResetConfirmationEmail(email, name) {
 
 export async function sendDepositNotificationEmail({ email, name, crypto, amount, status, date, isAdmin = false, userName, userEmail }) {
   const subject = isAdmin ? "New Deposit Request - Action Required" : "Deposit Request Received - STAKEWISEAI";
+  
+  const heading = isAdmin 
+    ? "" 
+    : `<h2 style="color:#0b132b; margin-bottom:12px; text-align:center;">Deposit Pending</h2>`;
+
   const message = isAdmin
     ? `<p style="font-size: 15px; color: #333;">A new deposit has been submitted by <strong>${userName}</strong> || <a href="mailto:${userEmail}">${userEmail}</a> </p>
     <p style="font-size: 15px; color: #333;">Please review and verify the transaction in the admin dashboard.</p>`
-    : `<p style="font-size: 15px; color: #555;">Your <strong>${crypto}</strong> deposit request of <strong>$${amount}</strong> is currently <strong>${status}</strong>.</p>
-      <p style="font-size: 15px; color: #555;">
-        Once our team verifies your payment, your deposit will be credited to your account. You’ll receive another confirmation when this happens.
+    : `<p style="font-size: 16px; color: #555; line-height: 1.6; margin-bottom: 12px;">
+        Your deposit request of <strong>$${amount}</strong> has been received successfully. You will be notified once your deposit has been confirmed on our end, and it will be automatically credited to your account.
+      </p>
+      <p style="font-size: 16px; color: #555; line-height: 1.6; margin-bottom: 24px;">
+        Thank you for choosing Stake Wise AI Platform.
       </p>
     `;
  
   const content = `
-     <p style="font-size: 16px; color: #333333; margin-bottom: 15px;">
+    <div style="padding: 10px 0;">
+      ${heading}
+      <p style="font-size: 16px; color: #555; line-height: 1.6; margin-bottom: 12px;">
         Hi <strong>${name}</strong>,
       </p>
-    ${message}
+      ${message}
+    </div>
     <table style="width:100%; border-collapse: collapse; margin:20px 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
       <tr style="background-color:#f0f4f8;"><td style="padding:12px; border:1px solid #e5e7eb; font-weight: 600;">Crypto</td><td style="padding:12px; border:1px solid #e5e7eb;">${crypto}</td></tr>
       <tr><td style="padding:12px; border:1px solid #e5e7eb; font-weight: 600;">Amount (USD)</td><td style="padding:12px; border:1px solid #e5e7eb;">$${amount}</td></tr>
