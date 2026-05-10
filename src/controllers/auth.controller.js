@@ -186,7 +186,11 @@ export const register = asyncHandler(async (req, res) => {
     newUser._id,
     "Registration",
     "Account created successfully",
-    "success"
+    "success",
+    {
+      ipAddress: userIp,
+      userAgent: req.headers["user-agent"],
+    }
   ).catch(console.error);
 
   return sendResponse(res, true, "Account created successfully", 201, {
@@ -254,7 +258,11 @@ export const login = asyncHandler(async (req, res) => {
     user._id,
     "Login",
     "User logged in successfully",
-    "success"
+    "success",
+    {
+      ipAddress: userIp,
+      userAgent: req.headers["user-agent"],
+    }
   ).catch(console.error);
 
   return sendResponse(res, true, "Login successful", 200, {
