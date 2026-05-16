@@ -4,7 +4,7 @@ import { sendEmail } from "../../zohoMailer.js";
 
 
 export async function sendWelcomeEmail({ email, name }) {
-  const subject = "Welcome to STAKEWISEAI - Let's Start Growing!";
+  const subject = "Welcome to SATRIXNOW - Let's Start Growing!";
 
   const content = `
     <div style="text-align:center; padding:10px 0;">
@@ -13,7 +13,7 @@ export async function sendWelcomeEmail({ email, name }) {
       </h2>
 
       <p style="color:#4b5563; font-size:16px; line-height:1.7; margin-bottom: 25px;">
-        We're thrilled to have you join <strong>STAKEWISEAI</strong>. You've just taken a major step toward optimizing your digital infrastructure and maximizing your computing power potential.
+        We're thrilled to have you join <strong>SATRIXNOW</strong>. You've just taken a major step toward optimizing your digital infrastructure and maximizing your computing power potential.
       </p>
 
       <div style="background: #f0f9ff; border-radius: 16px; padding: 25px; margin: 30px 0; border: 1px solid #e0f2fe; text-align: left;">
@@ -40,7 +40,7 @@ export async function sendWelcomeEmail({ email, name }) {
       
       <p style="margin-top: 30px; font-weight: 700; color: #1e3a8a;">
         Happy Investing,<br>
-        The STAKEWISEAI Team
+        The SATRIXNOW Team
       </p>
     </div>
   `;
@@ -53,14 +53,14 @@ export async function sendWelcomeEmail({ email, name }) {
 }
 
 export async function sendPasswordResetEmail(email, name, otp) {
-  const subject = "Your OTP Code - STAKEWISEAI";
+  const subject = "Your OTP Code - SATRIXNOW";
 
   const content = `
     <p>Hi <strong>${name}</strong>,</p>
 
     <p>
       You recently requested to reset your password for your
-      <strong>STAKEWISEAI</strong> account. Please use the OTP code below
+      <strong>SATRIXNOW</strong> account. Please use the OTP code below
       to complete the process:
     </p>
 
@@ -114,7 +114,7 @@ export async function sendPasswordChangeConfirmationEmail(email, name) {
 
       <p style="font-size:15px; color:#555; line-height:1.6; margin-bottom:24px;">
         If you did not perform this action, please contact our support team
-        <a href="mailto:support@stakewiseai.com"
+        <a href="mailto:support@satrixnow.com"
            style="color:#4f8cff; font-weight:bold; text-decoration:none;">
           immediately
         </a>.
@@ -158,7 +158,7 @@ export async function sendPasswordResetConfirmationEmail(email, name) {
 
       <p style="font-size:15px; color:#555; line-height:1.6; margin-bottom:24px;">
         If you did not perform this action, please contact our support team
-        <a href="mailto:support@stakewiseai.com"
+        <a href="mailto:support@satrixnow.com"
            style="color:#4f8cff; font-weight:bold; text-decoration:none;">
           immediately
         </a>.
@@ -189,7 +189,7 @@ export async function sendPasswordResetConfirmationEmail(email, name) {
 
 
 export async function sendDepositNotificationEmail({ email, name, crypto, amount, status, date, isAdmin = false, userName, userEmail }) {
-  const subject = isAdmin ? "New Deposit Request - Action Required" : "Deposit Request Received - STAKEWISEAI";
+  const subject = isAdmin ? "New Deposit Request - Action Required" : "Deposit Request Received - SATRIXNOW";
   
   const heading = isAdmin 
     ? "" 
@@ -225,7 +225,7 @@ export async function sendDepositNotificationEmail({ email, name, crypto, amount
 }
 
 export async function sendWithdrawalNotificationEmail({ email, name, crypto, amount, walletAddress, status, date, isAdmin = false, userName, userEmail }) {
-  const subject = isAdmin ? "New Withdrawal Request - Action Required" : "Withdrawal Request Received - STAKEWISEAI";
+  const subject = isAdmin ? "New Withdrawal Request - Action Required" : "Withdrawal Request Received - SATRIXNOW";
   const message = isAdmin
     ? `<p  style="font-size: 15px; color: #333;">A new withdrawal has been submitted by <strong>${userName}</strong>  <a href="mailto:${userEmail}">${userEmail}</a>
     </p><p  style="font-size: 15px; color: #333;">Please review and process this request in the admin dashboard.</p>`

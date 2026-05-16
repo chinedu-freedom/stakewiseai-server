@@ -16,7 +16,7 @@ export function emailTemplate(content) {
       padding: 30px 20px;
       text-align: center;
     ">
-      <h2 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 1px;">STAKEWISEAI</h2>
+      <h2 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 1px;">SATRIXNOW</h2>
       <p style="color: #ffffff; margin: 8px 0 0; font-size: 13px; opacity: 0.9; text-transform: uppercase; letter-spacing: 2px;">TECH • SECURE • SMART</p>
     </div>
 
@@ -37,7 +37,7 @@ export function emailTemplate(content) {
       color: #6b7280;
       border-top: 1px solid #e5e7eb;
     ">
-      <p style="margin: 0; font-weight: 600;">&copy; ${new Date().getFullYear()} STAKEWISEAI. All rights reserved.</p>
+      <p style="margin: 0; font-weight: 600;">&copy; ${new Date().getFullYear()} SATRIXNOW. All rights reserved.</p>
       <p style="margin: 6px 0 0;">Leading the Future of Computing Power.</p>
       <div style="margin-top: 12px;">
         <p style="margin: 0; font-size: 11px; opacity: 0.8;">You are receiving this email because you registered on our platform.</p>
