@@ -25,14 +25,7 @@ export async function sendWelcomeEmail({ email, name }) {
         </ul>
       </div>
 
-      <div style="margin:35px 0;">
-        <a href="${process.env.FRONTEND_URL}/account"
-          style="background: linear-gradient(90deg, #4f8cff, #6ee7ff); color:#ffffff; padding:16px 40px;
-                 border-radius:50px; text-decoration:none; font-weight:700;
-                 display:inline-block; box-shadow: 0 4px 15px rgba(79, 140, 255, 0.4);">
-          Go to My Dashboard
-        </a>
-      </div>
+
 
       <p style="color: #6b7280; font-size: 14px; line-height: 1.6;">
         Our team is here to support you 24/7. If you have any questions, simply reply to this email or reach out via our Help Line.
@@ -120,14 +113,7 @@ export async function sendPasswordChangeConfirmationEmail(email, name) {
         </a>.
       </p>
 
-      <div style="margin:30px 0;">
-        <a href="${process.env.FRONTEND_URL}/auth/sign-in"
-           style="background: linear-gradient(90deg, #4f8cff, #3b82f6); color:#ffffff; padding:14px 30px;
-                  border-radius:50px; text-decoration:none; font-weight:bold;
-                  display:inline-block; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.2);">
-          Go to Login
-        </a>
-      </div>
+  
 
       <p style="font-size:13px; color:#888; margin-top:20px;">
         If this was you, no further action is required.
@@ -164,14 +150,7 @@ export async function sendPasswordResetConfirmationEmail(email, name) {
         </a>.
       </p>
 
-      <div style="margin:30px 0;">
-        <a href="${process.env.FRONTEND_URL}/auth/sign-in"
-           style="background: linear-gradient(90deg, #4f8cff, #3b82f6); color:#ffffff; padding:14px 30px;
-                  border-radius:50px; text-decoration:none; font-weight:bold;
-                  display:inline-block; box-shadow: 0 4px 10px rgba(59, 130, 246, 0.2);">
-          Go to Login
-        </a>
-      </div>
+  
 
       <p style="font-size:13px; color:#888; margin-top:20px;">
         If this was you, no further action is required.
