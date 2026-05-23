@@ -34,15 +34,21 @@ export const createWithdrawalHandler = asyncHandler(async (req, res) => {
 export const getWithdrawalsHandler = asyncHandler(async (req, res) => {
   // Pagination
   const { page, limit, start, end } = getPaginationParams(req);
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return sendResponse(res, false, "Unauthorized", 401);
+  }
 
   // Total count
   const totalCount = await client.fetch(
-    `count(*[_type == "withdrawal"])`
+    `count(*[_type == "withdrawal" && user._ref == $userId])`,
+    { userId }
   );
 
   // Fetch withdrawals
   const withdrawals = await client.fetch(
-    `*[_type == "withdrawal"] 
+    `*[_type == "withdrawal" && user._ref == $userId] 
       | order(requestedAt desc) 
       [${start}...${end}] {
         _id,
@@ -53,7 +59,8 @@ export const getWithdrawalsHandler = asyncHandler(async (req, res) => {
         user -> {
           _id
         }
-      }`
+      }`,
+    { userId }
   );
 
   const pagination = buildPaginationMeta(totalCount, page, limit);

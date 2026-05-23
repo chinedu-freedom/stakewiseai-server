@@ -164,7 +164,7 @@ export const register = asyncHandler(async (req, res) => {
 
     totalProfit: 0,
     reservedProfit: 0,
-    accountBalance: 10,
+    accountBalance: 0,
     availableProfit: 0,
 
     isDeleted: false,

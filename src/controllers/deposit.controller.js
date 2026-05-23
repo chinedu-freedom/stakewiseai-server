@@ -13,19 +13,26 @@ const OXAPAY_MERCHANT_KEY   = process.env.OXAPAY_MERCHANT_KEY   || "";
 
 export const getDepositHistoryHandler = asyncHandler(async (req, res) => {
   const { page, limit, start, end } = getPaginationParams(req);
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return sendResponse(res, false, "Unauthorized", 401);
+  }
 
   const totalItems = await client.fetch(
-    `count(*[_type == "deposit"])`
+    `count(*[_type == "deposit" && user._ref == $userId])`,
+    { userId }
   );
 
   const deposits = await client.fetch(
-    `*[_type == "deposit"] | order(_createdAt desc) [${start}...${end}]{
+    `*[_type == "deposit" && user._ref == $userId] | order(_createdAt desc) [${start}...${end}]{
       _id,
       amount,
       status,
       crypto,
       _createdAt
-    }`
+    }`,
+    { userId }
   );
 
   const pagination = buildPaginationMeta(totalItems, page, limit);
