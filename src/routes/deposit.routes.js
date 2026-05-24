@@ -9,7 +9,7 @@ import { withAuth } from "../middlewares/auth/authGuard.js";
 
 const router = express.Router();
 
-router.get("/history", getDepositHistoryHandler);
+router.get("/history", withAuth, getDepositHistoryHandler);
 
 // OxaPay Routes
 router.post("/oxapay-address", withAuth, getOxapayAddressHandler);
