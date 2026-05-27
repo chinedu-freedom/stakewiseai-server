@@ -37,20 +37,6 @@ export async function validateInvestmentEligibility(
     };
   }
 
-  // 3. Prevent duplicate active investments in the SAME plan (Optional but often desired)
-  // Check if user already has an active investment in THIS specific plan
-  const existingSamePlanInvestment = await client.fetch(
-    `*[_type == "userInvestment" && user._ref == $userId && plan._ref == $planId && status == "active"][0]`,
-    { userId, planId }
-  );
-
-  if (existingSamePlanInvestment) {
-    return {
-      success: false,
-      message: "You already have an active investment in this plan.",
-      status: 400,
-    };
-  }
 
   // 4. Sequential Progression Check
   const currentPlanLevel = Number(plan.planLevel || 1);
