@@ -55,7 +55,7 @@ export const changePasswordController = asyncHandler(async (req, res) => {
 
     sendPasswordChangeConfirmationEmail(
       dbUser.email,
-      dbUser.userName?.split(" ")[0] || "dear"
+      dbUser.username?.split(" ")[0] || "dear"
     ).catch(err => {
     console.error("Failed to send password change email:", err);
   });

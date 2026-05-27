@@ -41,7 +41,7 @@ export const fetchAllInvestmentsController = asyncHandler(async (req, res) => {
         },
         user->{
           _id,
-          userName,
+          username,
           email
         }
       }`
