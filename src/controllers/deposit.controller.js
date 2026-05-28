@@ -95,7 +95,7 @@ export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
           crypto: currency.toUpperCase(),
           network: network,
           amount: Number(amount) || 0,
-          status: "pending",
+          status: "initiated",
           fundedAt: now,
           notes: "Awaiting payment",
           trackId: String(json.trackId),
@@ -142,7 +142,7 @@ export const notifyOxapayPaymentHandler = asyncHandler(async (req, res) => {
   const { userId } = req.user || {};
   if (!userId) return sendResponse(res, false, "Unauthorized", 401);
 
-  const { amount: amountRaw, crypto: cryptoRaw = "USDT", network = "TRC20", trackId } = req.body;
+  const { amount: amountRaw, crypto: cryptoRaw = "USDT", network = "TRC20", trackId, txHash } = req.body;
   const amount = Number(amountRaw);
 
   if (!amount || isNaN(amount) || amount < 2) {
@@ -164,13 +164,13 @@ export const notifyOxapayPaymentHandler = asyncHandler(async (req, res) => {
   const crypto = cryptoRaw.toUpperCase();
   const cryptoLabel = `${crypto} (${network})`;
 
-  // UPDATE the existing pending deposit record (created in getOxapayAddressHandler)
+  // UPDATE the existing initiated deposit record (created in getOxapayAddressHandler)
   // instead of creating a duplicate
   let depositId = null;
 
   if (trackId) {
     const existing = await client.fetch(
-      `*[_type == "deposit" && trackId == $trackId && status == "pending" && user._ref == $userId][0]{ _id }`,
+      `*[_type == "deposit" && trackId == $trackId && (status == "pending" || status == "initiated") && user._ref == $userId][0]{ _id }`,
       { trackId: String(trackId), userId }
     );
 
@@ -179,7 +179,7 @@ export const notifyOxapayPaymentHandler = asyncHandler(async (req, res) => {
       await client.patch(existing._id)
         .set({
           amount,
-          notes: "User confirmed payment sent — awaiting blockchain confirmation",
+          notes: "User clicked 'Deposit Completed' — awaiting OxaPay webhook confirmation",
           updatedAt: now,
         })
         .commit();
@@ -189,6 +189,9 @@ export const notifyOxapayPaymentHandler = asyncHandler(async (req, res) => {
 
   // If no existing record found (e.g. static address fallback), create a new one
   if (!depositId) {
+    if (!txHash) {
+      return sendResponse(res, false, "Transaction Hash is required for manual deposits", 400);
+    }
     depositId = uuidv4();
     await client.create({
       _id: depositId,
@@ -199,39 +202,48 @@ export const notifyOxapayPaymentHandler = asyncHandler(async (req, res) => {
       amount,
       status: "pending",
       fundedAt: now,
-      notes: "User confirmed payment sent — awaiting blockchain confirmation",
-      trackId: trackId || null,
+      notes: `User confirmed payment manually. TxHash: ${txHash}`,
+      trackId: txHash,
     });
   }
 
-  // Non-blocking email notifications
-  sendDepositNotificationEmail({
-    email: process.env.ADMIN_EMAIL,
-    name: "Admin",
-    crypto: cryptoLabel,
-    amount,
-    status: "pending",
-    date: now,
-    isAdmin: true,
-    userName: userData.username,
-    userEmail: userData.email,
-  }).catch((err) => console.error("OXAPAY_ADMIN_EMAIL_ERR:", err));
+  // Non-blocking email notifications ONLY for manual fallback
+  if (!trackId) {
+    sendDepositNotificationEmail({
+      email: process.env.ADMIN_EMAIL,
+      name: "Admin",
+      crypto: cryptoLabel,
+      amount,
+      status: "pending",
+      date: now,
+      isAdmin: true,
+      userName: userData.username,
+      userEmail: userData.email,
+    }).catch((err) => console.error("OXAPAY_ADMIN_EMAIL_ERR:", err));
 
-  sendDepositNotificationEmail({
-    email: userData.email,
-    name: userData.username || "User",
-    crypto: cryptoLabel,
-    amount,
-    status: "pending",
-    date: now,
-  }).catch((err) => console.error("OXAPAY_USER_EMAIL_ERR:", err));
+    sendDepositNotificationEmail({
+      email: userData.email,
+      name: userData.username || "User",
+      crypto: cryptoLabel,
+      amount,
+      status: "pending",
+      date: now,
+    }).catch((err) => console.error("OXAPAY_USER_EMAIL_ERR:", err));
 
-  logUserActivity(
-    userId,
-    "Deposit Notification",
-    `Notified deposit of $${amount} via ${cryptoLabel}`,
-    "info"
-  ).catch(console.error);
+    logUserActivity(
+      userId,
+      "Deposit Notification",
+      `Notified manual deposit of $${amount} via ${cryptoLabel} (TxHash: ${txHash})`,
+      "info"
+    ).catch(console.error);
+  } else {
+    logUserActivity(
+      userId,
+      "Deposit Initiated",
+      `Initiated automated deposit of $${amount} via ${cryptoLabel}`,
+      "info"
+    ).catch(console.error);
+  }
 
   return sendResponse(res, true, "Payment notification recorded. Your balance will be credited after confirmation.", 201, { depositId });
 });
@@ -267,6 +279,37 @@ export const oxapayWebhookHandler = asyncHandler(async (req, res) => {
     return res.status(200).json({ ok: true });
   }
 
+  if (rawStatus === 1 || rawStatus === "Confirming" || rawStatus === "waiting") {
+    const trackId = payload.trackId ? String(payload.trackId) : "";
+    console.log(`OXAPAY_WEBHOOK: Confirming payment on blockchain for TrackId: ${trackId}`);
+    if (trackId) {
+      const initiatedDeposit = await client.fetch(
+        `*[_type == "deposit" && status == "initiated" && trackId == $trackId] | order(_createdAt desc) [0]{ _id, user, amount, crypto }`,
+        { trackId }
+      );
+      if (initiatedDeposit) {
+        await client.patch(initiatedDeposit._id).set({ status: "pending", notes: "Confirming on blockchain" }).commit();
+        
+        // Notify admin that a deposit is confirming on the blockchain
+        const userData = await client.fetch(`*[_id == $userId][0]{ email, username }`, { userId: initiatedDeposit.user._ref });
+        if (userData) {
+          sendDepositNotificationEmail({
+            email: process.env.ADMIN_EMAIL,
+            name: "Admin",
+            crypto: initiatedDeposit.crypto || "USDT",
+            amount: initiatedDeposit.amount,
+            status: "pending",
+            date: new Date().toISOString(),
+            isAdmin: true,
+            userName: userData.username,
+            userEmail: userData.email,
+          }).catch(console.error);
+        }
+      }
+    }
+    return res.status(200).json({ ok: true });
+  }
+
   if (rawStatus !== 2 && rawStatus !== "Paid") {
     console.log(`OXAPAY_WEBHOOK: Ignoring status ${rawStatus}`);
     return res.status(200).json({ ok: true });
@@ -278,12 +321,12 @@ export const oxapayWebhookHandler = asyncHandler(async (req, res) => {
 
   console.log(`OXAPAY_WEBHOOK: Processing confirmed payment: $${paidAmount} ${currency} (TrackId: ${trackId})`);
 
-  // Find the pending deposit by trackId or amount (best effort matching)
+  // Find the initiated or pending deposit by trackId or amount (best effort matching)
   let pendingDeposit = null;
 
   if (trackId) {
     pendingDeposit = await client.fetch(
-      `*[_type == "deposit" && status == "pending" && trackId == $trackId] | order(_createdAt desc) [0]{ _id, user, amount }`,
+      `*[_type == "deposit" && (status == "pending" || status == "initiated") && trackId == $trackId] | order(_createdAt desc) [0]{ _id, user, amount }`,
       { trackId }
     );
   }
@@ -292,7 +335,7 @@ export const oxapayWebhookHandler = asyncHandler(async (req, res) => {
   if (!pendingDeposit) {
     console.log(`OXAPAY_WEBHOOK: No deposit found by trackId, trying amount match: ${paidAmount}`);
     pendingDeposit = await client.fetch(
-      `*[_type == "deposit" && status == "pending" && amount == $amount] | order(_createdAt desc) [0]{ _id, user, amount }`,
+      `*[_type == "deposit" && (status == "pending" || status == "initiated") && amount == $amount] | order(_createdAt desc) [0]{ _id, user, amount }`,
       { amount: paidAmount }
     );
   }
