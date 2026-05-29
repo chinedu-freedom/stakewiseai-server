@@ -24,7 +24,7 @@ export const createWithdrawalHandler = asyncHandler(async (req, res) => {
   return sendResponse(
     res,
     true,
-    "Withdrawal request submitted successfully and is pending approval.",
+      "Withdrawal request submitted successfully. N/B: Withdrawal processing time is within 24 hours.",
     201,
     createdWithdrawal
   );

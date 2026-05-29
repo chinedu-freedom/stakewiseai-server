@@ -41,6 +41,7 @@ export const getReferralsController = asyncHandler(async (req, res) => {
       username,
       referralCode,
       totalInvestment,
+      accountBalance,
       referredBy->{
         _id,
         username
