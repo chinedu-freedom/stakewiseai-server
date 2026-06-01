@@ -73,11 +73,14 @@ export const register = asyncHandler(async (req, res) => {
   const countryCodeFinal = `+${parsedPhone.countryCallingCode}`;
 
   const existingUser = await client.fetch(
-    `*[_type=="user" && (email==$email || phoneNumber==$phone)][0]`,
-    { email: normalizedEmail, phone: formattedPhone }
+    `*[_type=="user" && (email==$email || phoneNumber==$phone || lower(username) == lower($username))][0]`,
+    { email: normalizedEmail, phone: formattedPhone, username: username }
   );
 
   if (existingUser) {
+    if (existingUser.username?.toLowerCase() === username.toLowerCase()) {
+      return sendResponse(res, false, "Username already taken", 400);
+    }
     return sendResponse(
       res,
       false,
