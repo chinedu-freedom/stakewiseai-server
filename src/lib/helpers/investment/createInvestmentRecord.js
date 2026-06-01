@@ -92,12 +92,11 @@ export async function createInvestmentRecord(
 
       const rewardAmount = Number(amount) * p.percent;
 
-      // ✅ Add money to referrer
+      // ✅ Add money to referrer (Earnings Only)
       transaction.patch(p.user._id, (patch) =>
         patch
-          .setIfMissing({ accountBalance: 0, totalProfit: 0, referralRewards: [] })
-          .inc({ accountBalance: rewardAmount })
-          .inc({ totalProfit: rewardAmount })
+          .setIfMissing({ totalProfit: 0, availableProfit: 0, referralRewards: [] })
+          .inc({ totalProfit: rewardAmount, availableProfit: rewardAmount })
           .append("referralRewards", [
             {
               _key: uuid(),
