@@ -40,18 +40,75 @@ export async function createInvestmentRecord(
       updatedAt: now.toISOString(),
     };
 
+    const user = await client.fetch(
+      `*[_type == "user" && _id == $userId][0]{
+        _id,
+        accountBalance,
+        totalProfit,
+        reservedProfit,
+        availableProfit
+      }`,
+      { userId }
+    );
+
+    if (!user) {
+      return {
+        success: false,
+        error: "User not found during investment creation",
+      };
+    }
+
+    const balance = Number(user.accountBalance || 0);
+    const profit = Math.max(
+      0,
+      Number(
+        user.availableProfit !== undefined
+          ? user.availableProfit
+          : Number(user.totalProfit || 0) - Number(user.reservedProfit || 0)
+      )
+    );
+
+    const amt = Number(amount);
+    let deductFromBalance = 0;
+    let deductFromProfit = 0;
+
+    if (balance >= amt) {
+      deductFromBalance = amt;
+    } else {
+      deductFromBalance = balance;
+      deductFromProfit = amt - balance;
+    }
+
+    const decFields = {};
+    if (deductFromBalance > 0) {
+      decFields.accountBalance = deductFromBalance;
+    }
+    if (deductFromProfit > 0) {
+      decFields.totalProfit = deductFromProfit;
+      if (user.availableProfit !== undefined) {
+        decFields.availableProfit = deductFromProfit;
+      }
+    }
+
     const transaction = client.transaction();
 
     // ✅ 1. Create investment
     transaction.create(newInvestment);
 
     // ✅ 2. Deduct user balance
-    transaction.patch(userId, (patch) =>
-      patch
-        .setIfMissing({ accountBalance: 0, totalInvestment: 0 })
-        .dec({ accountBalance: Number(amount) })
-        .inc({ totalInvestment: Number(amount) })
-    );
+    transaction.patch(userId, (patch) => {
+      let p = patch.setIfMissing({
+        accountBalance: 0,
+        totalInvestment: 0,
+        totalProfit: 0,
+        reservedProfit: 0,
+        availableProfit: 0,
+      });
+      if (Object.keys(decFields).length > 0) {
+        p = p.dec(decFields);
+      }
+      return p.inc({ totalInvestment: amt });
+    });
 
     /**
      * 🔥 3. REFERRAL PAYOUT LOGIC

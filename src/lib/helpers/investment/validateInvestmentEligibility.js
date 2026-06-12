@@ -15,15 +15,24 @@ export async function validateInvestmentEligibility(
   planId
 ) {
   const balance = Number(user.accountBalance || 0);
+  const profit = Math.max(
+    0,
+    Number(
+      user.availableProfit !== undefined
+        ? user.availableProfit
+        : Number(user.totalProfit || 0) - Number(user.reservedProfit || 0)
+    )
+  );
+  const totalAvailable = balance + profit;
   const min = Number(plan.minDeposit);
   const max = Number(plan.maxDeposit);
   const amt = Number(amount);
 
   // 1. Balance check
-  if (balance < amt) {
+  if (totalAvailable < amt) {
     return {
       success: false,
-      message: "Insufficient balance. Please fund your wallet.",
+      message: "Insufficient balance. Please fund your wallet or use your profit balance.",
       status: 400,
     };
   }

@@ -5,7 +5,10 @@ export async function getUserAndPlan(userId, planId) {
     client.fetch(
       `*[_type == "user" && _id == $userId][0]{
         _id,
-        accountBalance
+        accountBalance,
+        totalProfit,
+        reservedProfit,
+        availableProfit
       }`,
       { userId }
     ),
