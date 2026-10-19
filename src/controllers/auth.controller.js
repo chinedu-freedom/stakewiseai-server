@@ -233,14 +233,9 @@ export const login = asyncHandler(async (req, res) => {
 
   const normalizedEmail = email?.trim().toLowerCase();
 
-  // Validate required fields
-  const validationError = validateFields(
-    ["email", "password"],
-    { email: normalizedEmail, password }
-  );
-
-  if (validationError) {
-    return sendResponse(res, false, validationError, 400);
+  // Validate required fields (check email and password presence only, no regex on login)
+  if (!normalizedEmail || !password) {
+    return sendResponse(res, false, "Email and password are required", 400);
   }
 
   const user = await findUserByEmail(normalizedEmail);
