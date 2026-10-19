@@ -9,10 +9,11 @@ const MAX_WALLETS_PER_USER = 5;
 
 const ALLOWED_CRYPTOS = [
   "BTC_BITCOIN",
-  "BNB_BEP20",
-  "ETH_ERC20",
+  "BTC",
+  "LTC_LITECOIN",
+  "LTC",
+  "USDT_BEP20",
   "USDT_TRC20",
-  "USDT_ERC20",
 ];
 
 export const addWalletController = asyncHandler(async (req, res) => {

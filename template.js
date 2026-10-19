@@ -1,49 +1,73 @@
 export function emailTemplate(content) {
   return `
-  <div style="
-    max-width: 600px;
-    margin: auto;
-    font-family: 'Poppins', Arial, sans-serif;
-    border: 1px solid #e5e5e5;
-    border-radius: 16px;
-    overflow: hidden;
-    background-color: #ffffff;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-  ">
-  
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockvextrade</title>
+  </head>
+  <body style="margin: 0; padding: 24px 12px; background-color: #040605; font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
     <div style="
-      background: linear-gradient(135deg, #4f8cff, #6ee7ff);
-      padding: 30px 20px;
-      text-align: center;
+      max-width: 580px;
+      margin: 0 auto;
+      border: 1px solid #00ff00;
+      border-radius: 16px;
+      overflow: hidden;
+      background-color: #000000;
+      box-shadow: 0 8px 32px rgba(0, 255, 0, 0.18);
     ">
-      <h2 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 1px;">SATRIXNOW</h2>
-      <p style="color: #ffffff; margin: 8px 0 0; font-size: 13px; opacity: 0.9; text-transform: uppercase; letter-spacing: 2px;">TECH • SECURE • SMART</p>
-    </div>
-
-    <div style="
-      padding: 35px 30px 20px 30px;
-      font-size: 15px;
-      line-height: 1.6;
-      color: #374151;
-    ">
-      ${content}
-    </div>
-
-    <div style="
-      background-color: #f0f4f8;
-      padding: 20px;
-      text-align: center;
-      font-size: 12px;
-      color: #6b7280;
-      border-top: 1px solid #e5e7eb;
-    ">
-      <p style="margin: 0; font-weight: 600;">&copy; ${new Date().getFullYear()} SATRIXNOW. All rights reserved.</p>
-      <p style="margin: 6px 0 0;">Leading the Future of Computing Power.</p>
-      <div style="margin-top: 12px;">
-        <p style="margin: 0; font-size: 11px; opacity: 0.8;">You are receiving this email because you registered on our platform.</p>
+    
+      <!-- HEADER (GREEN & BLACK) -->
+      <div style="
+        background: #000000;
+        padding: 32px 20px;
+        text-align: center;
+        border-bottom: 2px solid #00ff00;
+      ">
+        <h1 style="color: #00ff00; margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase;">
+          BLOCKVEXTRADE
+        </h1>
+        <p style="color: #ffffff; margin: 8px 0 0; font-size: 11px; opacity: 0.85; text-transform: uppercase; letter-spacing: 3px; font-weight: 600;">
+          TECH &bull; SECURE &bull; SMART
+        </p>
       </div>
-    </div>
 
-  </div>
+      <!-- BODY CONTENT -->
+      <div style="
+        padding: 35px 28px;
+        font-size: 15px;
+        line-height: 1.6;
+        color: #d1d5db;
+        background-color: #000000;
+      ">
+        ${content}
+      </div>
+
+      <!-- FOOTER -->
+      <div style="
+        background-color: #080c09;
+        padding: 24px 20px;
+        text-align: center;
+        font-size: 12px;
+        color: #9ca3af;
+        border-top: 1px solid #14241a;
+      ">
+        <p style="margin: 0; font-weight: 600; color: #ffffff;">
+          &copy; ${new Date().getFullYear()} <span style="color: #00ff00;">Blockvextrade</span>. All rights reserved.
+        </p>
+        <p style="margin: 6px 0 0; color: #6b7280; font-size: 12px;">
+          Leading the Future of AI-Powered Computing & Staking.
+        </p>
+        <div style="margin-top: 12px;">
+          <p style="margin: 0; font-size: 11px; color: #4b5563;">
+            You are receiving this email because you registered on our platform.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </body>
+  </html>
   `;
-}
+}

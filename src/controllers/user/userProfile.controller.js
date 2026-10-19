@@ -16,6 +16,7 @@ export const getUserProfileController = asyncHandler(async (req, res) => {
     email,
     country,
     image,
+    "imageUrl": image.asset->url,
     state,
     city,
     countryCode,
@@ -79,6 +80,14 @@ export const updateUserProfileController = asyncHandler(async (req, res) => {
       })
       .commit();
 
+    const userWithUrl = await client.fetch(
+      `*[_type == "user" && _id == $userId][0]{
+        image,
+        "imageUrl": image.asset->url
+      }`,
+      { userId }
+    );
+
     logUserActivity(
       userId,
       "Profile Updated",
@@ -88,6 +97,7 @@ export const updateUserProfileController = asyncHandler(async (req, res) => {
 
     return sendResponse(res, true, "Profile image updated successfully", 200, {
       image: updatedUser.image,
+      imageUrl: userWithUrl?.imageUrl || null,
     });
   } catch (err) {
     return sendResponse(res, false, "Failed to update profile image", 500, {

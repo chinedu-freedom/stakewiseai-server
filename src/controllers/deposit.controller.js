@@ -75,8 +75,8 @@ export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
           payCurrency: currency.toUpperCase(),
           network: oxapayNetwork,
           feePaidByPayer: 0,
-          callbackUrl: `${process.env.BACKEND_URL || "https://api.satrixai.com"}/api/deposits/oxapay-webhook`,
-          description: `SatrixNow Deposit - ${currency.toUpperCase()} ${network}`,
+          callbackUrl: `${process.env.BACKEND_URL || "https://api.blockvextrade.com"}/api/deposits/oxapay-webhook`,
+          description: `Blockvextrade Deposit - ${currency.toUpperCase()} ${network}`,
         }),
       });
       const json = await invoiceRes.json();

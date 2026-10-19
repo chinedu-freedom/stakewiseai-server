@@ -20,7 +20,7 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
     return { error: true };
   }
 
-  if (!selectedCrypto || !['USDT', 'BTC', 'ETH', 'BNB', 'TRX'].includes(selectedCrypto)) {
+  if (!selectedCrypto || !['USDT', 'USDT-BEP20', 'USDT_BEP20', 'USDT_TRC20', 'BTC', 'BTC_BITCOIN', 'LTC', 'LTC_LITECOIN'].includes(selectedCrypto)) {
     sendResponse(res, false, "A valid crypto asset must be selected", 400);
     return { error: true };
   }

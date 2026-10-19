@@ -3,6 +3,7 @@ import { parsePhoneNumberFromString } from "libphonenumber-js";
 import bcrypt from "bcryptjs";
 import {
   sendWelcomeEmail,
+  sendVerificationEmail,
   sendPasswordResetEmail,
   sendPasswordResetConfirmationEmail
 } from "../lib/mailer.js";
@@ -31,6 +32,8 @@ export const register = asyncHandler(async (req, res) => {
     email,
     phoneNumber,
     countryCode,
+    country,
+    countryISO: reqCountryISO,
     password,
     referralCode
   } = sanitized;
@@ -143,6 +146,11 @@ export const register = asyncHandler(async (req, res) => {
   // Get IP
   const userIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
+  // Generate 6-digit verification OTP
+  const otp = crypto.randomInt(100000, 1000000).toString();
+  const hashedOtp = await hashOtp(otp);
+  const otpExpiry = addMinutes(new Date(), 15).toISOString();
+
   const userData = {
     _type: "user",
     username,
@@ -150,7 +158,8 @@ export const register = asyncHandler(async (req, res) => {
     phoneNumber: formattedPhone,
     lastKnownIp: userIp,
 
-    countryISO,
+    country: (country && String(country).trim()) || null,
+    countryISO: reqCountryISO || countryISO || null,
     countryCode: countryCodeFinal,
 
     password: await bcrypt.hash(password, Number(process.env.SALT_ROUNDS) || 10),
@@ -161,13 +170,17 @@ export const register = asyncHandler(async (req, res) => {
 
     referralLevel,
 
-    emailVerified: true,
-    accountStatus: "active",
+    emailVerified: false,
+    accountStatus: "pending",
     role: "user",
+
+    otp: hashedOtp,
+    otpExpiry,
+    otpVerified: false,
 
     totalProfit: 0,
     reservedProfit: 0,
-    accountBalance: 0,
+    accountBalance: 2.5, // Registration bonus ($2.5)
     availableProfit: 0,
 
     isDeleted: false,
@@ -178,29 +191,37 @@ export const register = asyncHandler(async (req, res) => {
 
   const newUser = await client.create(userData);
 
-  // Send welcome email (non-blocking)
-  sendWelcomeEmail({
+  // Send verification email (non-blocking)
+  sendVerificationEmail({
     email: normalizedEmail,
     name: username,
-  }).catch((err) => console.error("WELCOME_EMAIL_FAILED:", err));
+    otp,
+  }).catch((err) => console.error("VERIFICATION_EMAIL_FAILED:", err));
+
+  console.log(`\n======================================================`);
+  console.log(`[EMAIL VERIFICATION OTP] for ${normalizedEmail}: ${otp}`);
+  console.log(`======================================================\n`);
 
   // Log activity
   logUserActivity(
     newUser._id,
     "Registration",
-    "Account created successfully",
-    "success",
+    "Account created, awaiting email verification",
+    "info",
     {
       ipAddress: userIp,
       userAgent: req.headers["user-agent"],
     }
   ).catch(console.error);
 
-  return sendResponse(res, true, "Account created successfully", 201, {
+  return sendResponse(res, true, "Account created! Please verify your email.", 201, {
     userId: newUser._id,
     email: newUser.email,
+    emailVerified: false,
+    requiresVerification: true,
     accountStatus: newUser.accountStatus,
     referralCode: newUser.referralCode,
+    country: newUser.country,
     referrer: referrerInfo,
   });
 });
@@ -247,6 +268,15 @@ export const login = asyncHandler(async (req, res) => {
 
   if (user.role !== "user") {
     return sendResponse(res, false, "Unauthorized access", 403);
+  }
+
+  // Block unverified email accounts
+  if (user.emailVerified !== true) {
+    return sendResponse(res, false, "Your email is not verified. Please verify your email before logging in.", 403, {
+      emailVerified: false,
+      email: user.email,
+      requiresVerification: true
+    });
   }
 
   const accessToken = generateToken(user._id, user.role, {
@@ -478,4 +508,109 @@ export const verifyUserOtp = asyncHandler(async (req, res) => {
     .commit();
 
   return sendResponse(res, true, "OTP verified successfully");
+});
+
+export const verifyEmail = asyncHandler(async (req, res) => {
+  const { email, otp } = sanitizeInput(req.body);
+  const normalizedEmail = email?.trim().toLowerCase();
+
+  if (!normalizedEmail || !otp) {
+    return sendResponse(res, false, "Email and 6-digit verification code are required", 400);
+  }
+
+  const user = await findUserByEmail(normalizedEmail);
+  if (!user) {
+    return sendResponse(res, false, "Account not found", 404);
+  }
+
+  if (user.emailVerified === true) {
+    return sendResponse(res, true, "Email already verified! Please log in.", 200, { emailVerified: true });
+  }
+
+  if (!user.otp || !user.otpExpiry) {
+    return sendResponse(res, false, "No active verification code. Please request a new one.", 400);
+  }
+
+  if (new Date(user.otpExpiry) < new Date()) {
+    return sendResponse(res, false, "Verification code has expired. Please request a new one.", 400);
+  }
+
+  const isOtpValid = await verifyOtp(otp.toString().trim(), user.otp);
+  if (!isOtpValid) {
+    return sendResponse(res, false, "Invalid verification code. Please check and try again.", 400);
+  }
+
+  await client
+    .patch(user._id)
+    .set({
+      emailVerified: true,
+      accountStatus: "active",
+      otpVerified: true,
+      otp: null,
+      otpExpiry: null,
+      updatedAt: new Date().toISOString()
+    })
+    .commit();
+
+  // Send Welcome email now that email is verified
+  sendWelcomeEmail({
+    email: normalizedEmail,
+    name: user.username || "Trader",
+  }).catch((err) => console.error("WELCOME_EMAIL_FAILED:", err));
+
+  logUserActivity(
+    user._id,
+    "Email Verified",
+    "User successfully verified email address",
+    "success"
+  ).catch(console.error);
+
+  return sendResponse(res, true, "Email verified successfully! You can now log in.", 200, {
+    emailVerified: true,
+    email: user.email
+  });
+});
+
+export const resendVerification = asyncHandler(async (req, res) => {
+  const { email } = sanitizeInput(req.body);
+  const normalizedEmail = email?.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return sendResponse(res, false, "Email address is required", 400);
+  }
+
+  const user = await findUserByEmail(normalizedEmail);
+  if (!user) {
+    return sendResponse(res, false, "Account not found", 404);
+  }
+
+  if (user.emailVerified === true) {
+    return sendResponse(res, false, "This account is already verified. Please log in.", 400);
+  }
+
+  const otp = crypto.randomInt(100000, 1000000).toString();
+  const hashedOtp = await hashOtp(otp);
+  const otpExpiry = addMinutes(new Date(), 15).toISOString();
+
+  await client
+    .patch(user._id)
+    .set({
+      otp: hashedOtp,
+      otpExpiry,
+      otpVerified: false,
+      updatedAt: new Date().toISOString()
+    })
+    .commit();
+
+  sendVerificationEmail({
+    email: user.email,
+    name: user.username || "User",
+    otp
+  }).catch((err) => console.error("RESEND_VERIFICATION_FAILED:", err));
+
+  console.log(`\n======================================================`);
+  console.log(`[RESENT VERIFICATION OTP] for ${user.email}: ${otp}`);
+  console.log(`======================================================\n`);
+
+  return sendResponse(res, true, "A new verification code has been sent to your email.");
 });
