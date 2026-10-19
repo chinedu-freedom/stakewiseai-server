@@ -1,9 +1,20 @@
 import { createClient } from "@sanity/client";
 
+const cleanStr = (val) => {
+  if (!val) return "";
+  return String(val)
+    .trim()
+    .replace(/^['"]+|['"]+$/g, "")
+    .replace(/^Bearer\s+/i, "")
+    .replace(/[\r\n\t]/g, "")
+    .replace(/[^\x21-\x7E]/g, "");
+};
+
 export const client = createClient({
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
-  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET,
-  apiVersion: process.env.NEXT_PUBLIC_SANITY_API_VERSION,
-  token: process.env.SANITY_SECRET_TOKEN,
+  projectId: cleanStr(process.env.NEXT_PUBLIC_SANITY_PROJECT_ID) || "doihcvcm",
+  dataset: cleanStr(process.env.NEXT_PUBLIC_SANITY_DATASET) || "production",
+  apiVersion: cleanStr(process.env.NEXT_PUBLIC_SANITY_API_VERSION) || "2024-01-01",
+  token: cleanStr(process.env.SANITY_SECRET_TOKEN),
   useCdn: false,
 });
+

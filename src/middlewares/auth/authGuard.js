@@ -5,15 +5,19 @@ import { sendResponse } from "../../lib/response.js";
 export const withAuth = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization || req.headers.Authorization;
-    const token = authHeader?.startsWith("Bearer ")
+    let token = authHeader?.startsWith("Bearer ")
       ? authHeader.split(" ")[1]
       : null;
+
+    if (token) {
+      token = token.trim().replace(/^['"]+|['"]+$/g, "");
+    }
 
     if (!token) {
       return sendResponse(res, false, "Unauthorized: Please log in", 401);
     }
 
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+    const secret = new TextEncoder().encode(String(process.env.JWT_SECRET || "").trim());
 
     const { payload } = await jwtVerify(token, secret);
 
