@@ -93,9 +93,9 @@ export const getWithdrawalLimitsController = asyncHandler(async (req, res) => {
   }
 
   const availableProfit = Number(userData.availableProfit) || 0;
-  const MIN_WITHDRAWAL = 20;
+  const MIN_WITHDRAWAL = 15;
   const MAX_DAILY_WITHDRAWALS = 1;
-  const WITHDRAWAL_FEE_PERCENT = 6;
+  const WITHDRAWAL_FEE_PERCENT = 4;
 
   const now = new Date();
   const startOfDay = new Date(now).setHours(0, 0, 0, 0);

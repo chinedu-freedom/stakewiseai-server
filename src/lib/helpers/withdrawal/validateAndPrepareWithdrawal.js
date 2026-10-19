@@ -47,9 +47,9 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
     return { error: true };
   }
 
-  const MIN_WITHDRAWAL = 20;
+  const MIN_WITHDRAWAL = 15;
   const MAX_DAILY_WITHDRAWALS = 1;
-  const WITHDRAWAL_FEE_PERCENT = 0.06; // 6%
+  const WITHDRAWAL_FEE_PERCENT = 0.04; // 6%
 
   if (parsedAmount < MIN_WITHDRAWAL) {
     sendResponse(res, false, `Minimum withdrawal is $${MIN_WITHDRAWAL}`, 400);
