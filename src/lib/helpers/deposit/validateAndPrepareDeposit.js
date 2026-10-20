@@ -2,7 +2,7 @@ import { uploadImage } from "../../uploadImage.js";
 import { sendResponse } from "../../response.js";
 import { client } from "../../sanity.js";
 
-const MIN_AMOUNT = 2;
+const MIN_AMOUNT = 1;
 const MAX_AMOUNT = 1_000_000;
 
 export async function validateAndPrepareDeposit(req, user, res) {
