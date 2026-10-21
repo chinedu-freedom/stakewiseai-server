@@ -30,6 +30,8 @@ export const getDepositHistoryHandler = asyncHandler(async (req, res) => {
       amount,
       status,
       crypto,
+      network,
+      fundedAt,
       _createdAt
     }`,
     { userId }
