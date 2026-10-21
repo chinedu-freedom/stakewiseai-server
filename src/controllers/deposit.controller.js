@@ -70,6 +70,10 @@ export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
 
     try {
       const { userId } = req.user;
+      const callbackBase = process.env.BACKEND_URL && !process.env.BACKEND_URL.includes("localhost")
+        ? process.env.BACKEND_URL
+        : "https://stakewiseai-server.onrender.com";
+
       const invoiceRes = await fetch("https://api.oxapay.com/merchants/request/whitelabel", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -79,8 +83,8 @@ export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
           payCurrency: currency.toUpperCase(),
           network: oxapayNetwork,
           feePaidByPayer: 0,
-          callbackUrl: `${process.env.BACKEND_URL || "https://api.blockvextrade.com"}/api/deposits/oxapay-webhook`,
-          description: `Blockvextrade Deposit - ${currency.toUpperCase()} ${network}`,
+          callbackUrl: `${callbackBase}/api/deposits/oxapay-webhook`,
+          description: `GlobalStake Deposit - ${currency.toUpperCase()} ${network}`,
         }),
       });
       const json = await invoiceRes.json();
@@ -183,11 +187,56 @@ export const notifyOxapayPaymentHandler = asyncHandler(async (req, res) => {
       await client.patch(existing._id)
         .set({
           amount,
-          notes: "User clicked 'Deposit Completed' — awaiting OxaPay webhook confirmation",
+          notes: "User clicked 'Deposit Completed' — verifying with OxaPay",
           updatedAt: now,
         })
         .commit();
       depositId = existing._id;
+
+      // Check OxaPay inquiry immediately in case payment is already confirmed on blockchain
+      try {
+        const inquiryRes = await fetch("https://api.oxapay.com/merchants/inquiry", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            merchant: OXAPAY_MERCHANT_KEY,
+            trackId: Number(trackId),
+          }),
+        });
+        const inquiryData = await inquiryRes.json();
+        const inqStatus = String(inquiryData.status || "").toLowerCase().trim();
+        const isPaid = (inqStatus === "2" || inqStatus === "paid" || inqStatus === "confirmed" || inqStatus === "complete");
+
+        if (inquiryData.result === 100 && isPaid) {
+          const creditAmount = Number(inquiryData.amount !== undefined ? inquiryData.amount : amount) || 0;
+          await client.transaction()
+            .patch(depositId, (p) => p.set({
+              status: "successful",
+              amount: creditAmount,
+              updatedAt: now,
+              notes: `Confirmed immediately on completion (TrackId: ${trackId})`
+            }))
+            .patch(userId, (p) =>
+              p.setIfMissing({ accountBalance: 0 }).inc({ accountBalance: creditAmount })
+            )
+            .commit();
+
+          logUserActivity(
+            userId,
+            "Deposit Confirmed",
+            `Deposit of $${creditAmount} USD confirmed and credited`,
+            "success"
+          ).catch(console.error);
+
+          return sendResponse(res, true, "Deposit confirmed and credited to your account!", 200, {
+            depositId,
+            confirmed: true,
+            creditedAmount: creditAmount,
+          });
+        }
+      } catch (inqErr) {
+        console.error("OXAPAY_IMMEDIATE_INQUIRY_ERR:", inqErr);
+      }
     }
   }
 
@@ -274,16 +323,17 @@ export const oxapayWebhookHandler = asyncHandler(async (req, res) => {
     }
   }
 
-  // OxaPay sends status: 1 = waiting, 2 = confirmed, 3 = expired (for invoices)
-  // For White-label/Static it sends strings: "Confirming", "Paid", "Expired"
-  const rawStatus = payload?.status;
+  // Normalize status: OxaPay sends strings like "paid", "Paid", "Confirming", "expired", or numeric 1, 2, 3
+  const rawStatus = (payload?.status !== undefined && payload?.status !== null)
+    ? String(payload.status).toLowerCase().trim()
+    : "";
   
-  if (rawStatus === 3 || rawStatus === "Expired") {
+  if (rawStatus === "3" || rawStatus === "expired" || rawStatus === "failed") {
     console.warn(`OXAPAY_WEBHOOK: Payment expired/failed for TrackId: ${payload.trackId}`);
     return res.status(200).json({ ok: true });
   }
 
-  if (rawStatus === 1 || rawStatus === "Confirming" || rawStatus === "waiting") {
+  if (rawStatus === "1" || rawStatus === "confirming" || rawStatus === "waiting") {
     const trackId = payload.trackId ? String(payload.trackId) : "";
     console.log(`OXAPAY_WEBHOOK: Confirming payment on blockchain for TrackId: ${trackId}`);
     if (trackId) {
@@ -314,14 +364,15 @@ export const oxapayWebhookHandler = asyncHandler(async (req, res) => {
     return res.status(200).json({ ok: true });
   }
 
-  if (rawStatus !== 2 && rawStatus !== "Paid") {
+  const isPaid = (rawStatus === "2" || rawStatus === "paid" || rawStatus === "confirmed" || rawStatus === "complete");
+  if (!isPaid) {
     console.log(`OXAPAY_WEBHOOK: Ignoring status ${rawStatus}`);
     return res.status(200).json({ ok: true });
   }
 
-  const paidAmount = Number(payload.amount) || 0;
+  const paidAmount = Number(payload.amount !== undefined && payload.amount !== null ? payload.amount : payload.payAmount) || 0;
   const trackId   = payload.trackId ? String(payload.trackId) : "";
-  const currency  = payload.currency || "USDT";
+  const currency  = payload.currency || payload.payCurrency || "USDT";
 
   console.log(`OXAPAY_WEBHOOK: Processing confirmed payment: $${paidAmount} ${currency} (TrackId: ${trackId})`);
 
@@ -399,4 +450,89 @@ export const oxapayWebhookHandler = asyncHandler(async (req, res) => {
   }
 
   return res.status(200).json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/deposits/sync-status
+// Fallback active sync: queries OxaPay's /merchants/inquiry API for any pending
+// deposits for the current user and automatically credits confirmed payments.
+// ─────────────────────────────────────────────────────────────────────────────
+export const syncUserPendingDepositsHandler = asyncHandler(async (req, res) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    return sendResponse(res, false, "Unauthorized", 401);
+  }
+
+  // Fetch up to 10 initiated or pending deposits with a trackId
+  const pendingDeposits = await client.fetch(
+    `*[_type == "deposit" && user._ref == $userId && (status == "initiated" || status == "pending") && defined(trackId)] | order(_createdAt desc)[0...10]{
+      _id,
+      amount,
+      crypto,
+      trackId,
+      status
+    }`,
+    { userId }
+  );
+
+  if (!pendingDeposits || pendingDeposits.length === 0) {
+    return sendResponse(res, true, "No pending deposits to sync", 200, { creditedCount: 0 });
+  }
+
+  let creditedCount = 0;
+
+  for (const dep of pendingDeposits) {
+    try {
+      const inquiryRes = await fetch("https://api.oxapay.com/merchants/inquiry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          merchant: OXAPAY_MERCHANT_KEY,
+          trackId: Number(dep.trackId),
+        }),
+      });
+
+      const data = await inquiryRes.json();
+      console.log(`OXAPAY_INQUIRY_SYNC [TrackId: ${dep.trackId}]:`, data);
+
+      const status = String(data.status || "").toLowerCase().trim();
+      const isPaid = (status === "2" || status === "paid" || status === "confirmed" || status === "complete");
+
+      if (data.result === 100 && isPaid) {
+        const creditAmount = Number(data.amount !== undefined ? data.amount : dep.amount) || 0;
+
+        await client.transaction()
+          .patch(dep._id, (p) => p.set({
+            status: "successful",
+            amount: creditAmount,
+            updatedAt: new Date().toISOString(),
+            notes: `Auto-synced via OxaPay Inquiry (TrackId: ${dep.trackId})`
+          }))
+          .patch(userId, (p) =>
+            p.setIfMissing({ accountBalance: 0 }).inc({ accountBalance: creditAmount })
+          )
+          .commit();
+
+        logUserActivity(
+          userId,
+          "Deposit Confirmed",
+          `Deposit of $${creditAmount} USD confirmed and credited via auto-sync`,
+          "success"
+        ).catch(console.error);
+
+        creditedCount++;
+      } else if (data.result === 100 && (status === "expired" || status === "failed" || status === "3")) {
+        await client.patch(dep._id).set({
+          status: "failed",
+          notes: "Invoice expired on OxaPay"
+        }).commit();
+      }
+    } catch (err) {
+      console.error(`Error syncing deposit ${dep._id}:`, err);
+    }
+  }
+
+  return sendResponse(res, true, `Sync completed. ${creditedCount} deposit(s) credited.`, 200, {
+    creditedCount
+  });
 });

@@ -4,6 +4,7 @@ import {
   getOxapayAddressHandler,
   notifyOxapayPaymentHandler,
   oxapayWebhookHandler,
+  syncUserPendingDepositsHandler,
 } from "../controllers/deposit.controller.js";
 import { withAuth } from "../middlewares/auth/authGuard.js";
 
@@ -15,5 +16,6 @@ router.get("/history", withAuth, getDepositHistoryHandler);
 router.post("/oxapay-address", withAuth, getOxapayAddressHandler);
 router.post("/oxapay-notify", withAuth, notifyOxapayPaymentHandler);
 router.post("/oxapay-webhook", oxapayWebhookHandler);
+router.post("/sync-status", withAuth, syncUserPendingDepositsHandler);
 
 export default router;
