@@ -147,8 +147,32 @@ export const fetchAllInvestmentsController = asyncHandler(async (req, res) => {
     client.fetch(countQuery, { userId }),
   ]);
 
+  const enrichedInvestments = (investments || []).map((inv) => {
+    const duration = Number(inv.plan?.contractDuration || 0);
+    const start = new Date(inv.startDate || inv.createdAt || Date.now());
+    const end = inv.endDate
+      ? new Date(inv.endDate)
+      : new Date(start.getTime() + duration * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const msRemaining = end.getTime() - now.getTime();
+    const daysLeft = inv.status === "completed"
+      ? 0
+      : Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)));
+    const daysPassed = Math.min(
+      duration,
+      Math.max(0, Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)))
+    );
+
+    return {
+      ...inv,
+      daysLeft,
+      daysPassed,
+      endDate: end.toISOString(),
+    };
+  });
+
   return sendResponse(res, true, "Investments fetched successfully", 200, {
-    investments,
+    investments: enrichedInvestments,
     meta: buildPaginationMeta(total, page, limit),
   });
 });

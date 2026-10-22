@@ -60,8 +60,8 @@ export const getDepositHistoryHandler = asyncHandler(async (req, res) => {
 export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
   const { currency = "USDT", network = "TRC20", amount } = req.body;
 
-  if (amount !== undefined && (isNaN(Number(amount)) || Number(amount) < 1)) {
-    return sendResponse(res, false, "Minimum deposit is $1", 400);
+  if (amount !== undefined && (isNaN(Number(amount)) || Number(amount) < 50)) {
+    return sendResponse(res, false, "Minimum deposit is $50", 400);
   }
 
   // If a merchant API key is configured, create a dynamic OxaPay invoice
@@ -155,8 +155,8 @@ export const notifyOxapayPaymentHandler = asyncHandler(async (req, res) => {
   const { amount: amountRaw, crypto: cryptoRaw = "USDT", network = "TRC20", trackId, txHash } = req.body;
   const amount = Number(amountRaw);
 
-  if (!amount || isNaN(amount) || amount < 1) {
-    return sendResponse(res, false, "Minimum deposit is $1", 400);
+  if (!amount || isNaN(amount) || amount < 50) {
+    return sendResponse(res, false, "Minimum deposit is $50", 400);
   }
 
   // Fetch user info
