@@ -27,9 +27,31 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // CORS configuration
+const allowedOrigins = [
+  "https://blockvextrade.com",
+  "https://www.blockvextrade.com",
+  "https://api.blockvextrade.com",
+  "http://localhost:3000",
+  "http://localhost:5000",
+  "http://127.0.0.1:5500",
+  "http://localhost:5500",
+  ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(s => s.trim()) : [])
+];
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes("*")) {
+        return callback(null, true);
+      }
+      // Allow subdomains of blockvextrade.com
+      if (/^https:\/\/(.*\.)?blockvextrade\.com$/.test(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
     credentials: true,
   })
 );

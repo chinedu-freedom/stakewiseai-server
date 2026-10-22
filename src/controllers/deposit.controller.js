@@ -74,7 +74,7 @@ export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
       const { userId } = req.user;
       const callbackBase = process.env.BACKEND_URL && !process.env.BACKEND_URL.includes("localhost")
         ? process.env.BACKEND_URL
-        : "https://stakewiseai-server.onrender.com";
+        : "https://api.blockvextrade.com";
 
       const invoiceRes = await fetch("https://api.oxapay.com/merchants/request/whitelabel", {
         method: "POST",
@@ -86,7 +86,7 @@ export const getOxapayAddressHandler = asyncHandler(async (req, res) => {
           network: oxapayNetwork,
           feePaidByPayer: 0,
           callbackUrl: `${callbackBase}/api/deposits/oxapay-webhook`,
-          description: `GlobalStake Deposit - ${currency.toUpperCase()} ${network}`,
+          description: `Blockvextrade Deposit - ${currency.toUpperCase()} ${network}`,
         }),
       });
       const json = await invoiceRes.json();
