@@ -9,6 +9,19 @@ export async function validateAndPrepareWithdrawal(req, user, res) {
     return { error: true };
   }
 
+  // Withdrawals are only allowed on Monday (1), Wednesday (3), and Thursday (4)
+  const currentDay = new Date().getUTCDay();
+  const ALLOWED_WITHDRAWAL_DAYS = [1, 3, 4];
+  if (!ALLOWED_WITHDRAWAL_DAYS.includes(currentDay)) {
+    sendResponse(
+      res,
+      false,
+      "Withdrawals are only permitted on Mondays, Wednesdays, and Thursdays (UTC).",
+      400
+    );
+    return { error: true };
+  }
+
   const { amount, walletAddress, crypto } = req.body;
 
   const wallet = walletAddress?.trim();

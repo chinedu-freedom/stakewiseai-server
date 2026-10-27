@@ -98,6 +98,9 @@ export const getWithdrawalLimitsController = asyncHandler(async (req, res) => {
   const WITHDRAWAL_FEE_PERCENT = 4;
 
   const now = new Date();
+  const currentDay = now.getUTCDay();
+  const allowedDays = [1, 3, 4]; // Monday, Wednesday, Thursday
+  const isWithdrawalDay = allowedDays.includes(currentDay);
   const startOfDay = new Date(now).setHours(0, 0, 0, 0);
 
   const stats = await client.fetch(
@@ -122,5 +125,8 @@ export const getWithdrawalLimitsController = asyncHandler(async (req, res) => {
     withdrawalFeePercent: WITHDRAWAL_FEE_PERCENT,
     dailyCount,
     availableProfit,
+    allowedDays,
+    allowedDaysText: "Monday, Wednesday, Thursday",
+    isWithdrawalDay,
   });
 });
