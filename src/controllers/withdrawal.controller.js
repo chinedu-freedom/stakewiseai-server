@@ -99,7 +99,7 @@ export const getWithdrawalLimitsController = asyncHandler(async (req, res) => {
 
   const now = new Date();
   const currentDay = now.getUTCDay();
-  const allowedDays = [1, 3, 4]; // Monday, Wednesday, Thursday
+  const allowedDays = [1, 3, 5]; // Monday, Wednesday, Friday
   const isWithdrawalDay = allowedDays.includes(currentDay);
   const startOfDay = new Date(now).setHours(0, 0, 0, 0);
 
@@ -126,7 +126,7 @@ export const getWithdrawalLimitsController = asyncHandler(async (req, res) => {
     dailyCount,
     availableProfit,
     allowedDays,
-    allowedDaysText: "Monday, Wednesday, Thursday",
+    allowedDaysText: "Monday, Wednesday, Friday",
     isWithdrawalDay,
   });
 });
