@@ -7,6 +7,7 @@ export async function getReferralsByUser(userId) {
     _id,
     username,
     email,
+    phoneNumber,
     accountStatus,
     emailVerified,
     referralCode,

@@ -36,6 +36,7 @@ export const getReferralsController = asyncHandler(async (req, res) => {
     `${baseQuery} | order(_createdAt desc) [${start}...${end}] {
       _id,
       email,
+      phoneNumber,
       accountStatus,
       emailVerified,
       username,
