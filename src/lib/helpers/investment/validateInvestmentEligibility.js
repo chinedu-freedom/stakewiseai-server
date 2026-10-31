@@ -5,7 +5,6 @@ import { client } from "../../sanity.js";
  * Logic:
  * 1. Sufficient balance.
  * 2. Within plan deposit limits.
- * 3. Sequential progression (cannot skip plan levels).
  */
 export async function validateInvestmentEligibility(
   user,
@@ -46,29 +45,6 @@ export async function validateInvestmentEligibility(
     };
   }
 
-
-  // 4. Sequential Progression Check
-  const currentPlanLevel = Number(plan.planLevel || 1);
-
-  if (currentPlanLevel > 1) {
-    // Check if the user has EVER had an investment in a plan with level = currentLevel - 1
-    // We check for level - 1 to ensure they follow the sequence 1 -> 2 -> 3
-    const previousLevelInvestment = await client.fetch(
-      `*[_type == "userInvestment" && user._ref == $userId && plan->planLevel == $prevLevel][0]`,
-      { 
-        userId, 
-        prevLevel: currentPlanLevel - 1 
-      }
-    );
-
-    if (!previousLevelInvestment) {
-      return {
-        success: false,
-        message: `You must invest in a Level ${currentPlanLevel - 1} plan before you can access this Level ${currentPlanLevel} plan.`,
-        status: 403,
-      };
-    }
-  }
 
   return {
     success: true,
