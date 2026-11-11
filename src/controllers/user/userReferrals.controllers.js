@@ -3,7 +3,7 @@ import { asyncHandler } from "../../lib/asyncHandler.js";
 import { sendResponse } from "../../lib/response.js";
 import { getPaginationParams, buildPaginationMeta } from "../../lib/pagination.js";
 
-// GET - Fetch referrals by logged-in user with pagination
+// GET - Fetch all referrals by logged-in user without pagination
 export const getReferralsController = asyncHandler(async (req, res) => {
   const userId = req.user?.userId;
 
@@ -11,8 +11,6 @@ export const getReferralsController = asyncHandler(async (req, res) => {
     return sendResponse(res, false, "Unauthorized: Please log in", 401);
   }
 
-  // Pagination & Level parsing
-  const { page, limit, start, end } = getPaginationParams(req);
   const level = parseInt(req.query.level) || 1;
 
   // Determine the relationship query based on level
@@ -28,12 +26,9 @@ export const getReferralsController = asyncHandler(async (req, res) => {
 
   const baseQuery = `*[_type == "user" && ${referralCondition}]`;
 
-  // Total count of referrals at this level
-  const totalCount = await client.fetch(`count(${baseQuery})`, { userId });
-
-  // Fetch paginated referrals including totalInvestment for UI
+  // Fetch all referrals including totalInvestment for UI (no pagination limit)
   const referrals = await client.fetch(
-    `${baseQuery} | order(_createdAt desc) [${start}...${end}] {
+    `${baseQuery} | order(_createdAt desc) {
       _id,
       email,
       phoneNumber,
@@ -52,7 +47,8 @@ export const getReferralsController = asyncHandler(async (req, res) => {
     { userId }
   );
 
-  const pagination = buildPaginationMeta(totalCount, page, limit);
+  const totalCount = referrals.length;
+  const pagination = buildPaginationMeta(totalCount, 1, totalCount || 1);
 
   return sendResponse(res, true, `Level ${level} Referrals fetched successfully`, 200, {
     level,

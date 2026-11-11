@@ -4,18 +4,10 @@ import { getPaginationParams, buildPaginationMeta } from "../../lib/pagination.j
 import { client } from "../../lib/sanity.js";
 
 export const fetchAllInvestmentsController = asyncHandler(async (req, res) => {
-  // Pagination params
-  const { page, limit, start, end } = getPaginationParams(req);
-
-  // Count all investments (no user filter)
-  const totalCount = await client.fetch(
-    `count(*[_type == "userInvestment"])`
-  );
-
-  // Fetch paginated investments (ALL users)
+  // Fetch all investments without pagination slicing
   const investments = await client.fetch(
     `*[_type == "userInvestment"]
-      | order(createdAt desc) [${start}...${end}] {
+      | order(createdAt desc) {
         _id,
         planType,
         amount,
@@ -47,7 +39,8 @@ export const fetchAllInvestmentsController = asyncHandler(async (req, res) => {
       }`
   );
 
-  const pagination = buildPaginationMeta(totalCount, page, limit);
+  const totalCount = investments?.length || 0;
+  const pagination = buildPaginationMeta(totalCount, 1, totalCount || 1);
 
   return sendResponse(res, true, "All investments fetched successfully", 200, {
     data: investments,

@@ -4,13 +4,11 @@ import { getPaginationParams, buildPaginationMeta } from "../lib/pagination.js";
 import { sendResponse } from "../lib/response.js";
 
 export const getPlansHandler = asyncHandler(async (req, res) => {
-  const { page, limit, start, end } = getPaginationParams(req);
-
   const whereClause = `_type == "plan" && status == "active"`;
 
   const plansQuery = `*[
     ${whereClause}
-  ] | order(createdAt asc) [${start}...${end}]{
+  ] | order(createdAt asc){
     _id,
     title,
     minDeposit,
@@ -24,18 +22,13 @@ export const getPlansHandler = asyncHandler(async (req, res) => {
     updatedAt
   }`;
 
-  const plans = await client.fetch(plansQuery, {
-    start,
-    end,
-  });
-
-  const total = await client.fetch(
-    `count(*[${whereClause}])`
-  );
+  const plans = await client.fetch(plansQuery);
+  const total = plans?.length || 0;
 
   return sendResponse(res, true, "Plans fetched successfully", 200, {
     plans,
-    meta: buildPaginationMeta(total, page, limit),
+    meta: buildPaginationMeta(total, 1, total || 1),
+    pagination: buildPaginationMeta(total, 1, total || 1),
   });
 });
 

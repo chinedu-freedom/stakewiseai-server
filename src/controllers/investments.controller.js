@@ -117,9 +117,7 @@ export const fetchAllInvestmentsController = asyncHandler(async (req, res) => {
     return sendResponse(res, false, "Unauthorized: Please log in", 401);
   }
 
-  const { page, limit, start, end } = getPaginationParams(req);
-
-  const query = `*[_type == "userInvestment" && user._ref == $userId] | order(createdAt desc) [${start}...${end}]{
+  const query = `*[_type == "userInvestment" && user._ref == $userId] | order(createdAt desc){
     _id,
     amount,
     profitEarned,
@@ -140,12 +138,8 @@ export const fetchAllInvestmentsController = asyncHandler(async (req, res) => {
     }
   }`;
 
-  const countQuery = `count(*[_type == "userInvestment" && user._ref == $userId])`;
-
-  const [investments, total] = await Promise.all([
-    client.fetch(query, { userId }),
-    client.fetch(countQuery, { userId }),
-  ]);
+  const investments = await client.fetch(query, { userId });
+  const total = investments?.length || 0;
 
   const enrichedInvestments = (investments || []).map((inv) => {
     const duration = Number(inv.plan?.contractDuration || 0);
@@ -173,7 +167,8 @@ export const fetchAllInvestmentsController = asyncHandler(async (req, res) => {
 
   return sendResponse(res, true, "Investments fetched successfully", 200, {
     investments: enrichedInvestments,
-    meta: buildPaginationMeta(total, page, limit),
+    meta: buildPaginationMeta(total, 1, total || 1),
+    pagination: buildPaginationMeta(total, 1, total || 1),
   });
 });
 
