@@ -15,7 +15,8 @@ export const getDashboardStatsController = asyncHandler(async (req, res) => {
       accountBalance,
       totalProfit,
       reservedProfit,
-      totalInvestment
+      totalInvestment,
+      referralRewards
     }`,
     { userId }
   );
@@ -28,6 +29,25 @@ export const getDashboardStatsController = asyncHandler(async (req, res) => {
   const reservedProfit = Number(userData.reservedProfit || 0);
 
   const availableProfit = totalProfit - reservedProfit;
+
+  // ✅ Calculate ROI only (profit made from investments)
+  const userInvestments = await client.fetch(
+    `*[_type == "userInvestment" && user._ref == $userId]{
+      profitEarned
+    }`,
+    { userId }
+  );
+
+  const totalRoi = (userInvestments || []).reduce(
+    (sum, inv) => sum + (Number(inv.profitEarned) || 0),
+    0
+  );
+
+  // ✅ Calculate referral commission only
+  const referralCommission = (userData.referralRewards || []).reduce(
+    (sum, r) => sum + (Number(r.amount) || 0),
+    0
+  );
 
   // ✅ Only sum successful withdrawals
   const withdrawals = await client.fetch(
@@ -48,7 +68,11 @@ export const getDashboardStatsController = asyncHandler(async (req, res) => {
     "Dashboard statistics fetched successfully",
     200,
     {
+      depositBalance: Number(userData.accountBalance || 0),
       currentAssets: Number(userData.accountBalance || 0),
+      totalRoi,
+      roi: totalRoi,
+      referralCommission,
       totalStaked: Number(userData.totalInvestment || 0),
       totalCommission: totalProfit,
       commission: availableProfit, // Spendable
