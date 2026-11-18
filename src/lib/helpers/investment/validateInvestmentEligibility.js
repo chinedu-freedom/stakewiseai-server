@@ -14,24 +14,15 @@ export async function validateInvestmentEligibility(
   planId
 ) {
   const balance = Number(user.accountBalance || 0);
-  const profit = Math.max(
-    0,
-    Number(
-      user.availableProfit !== undefined
-        ? user.availableProfit
-        : Number(user.totalProfit || 0) - Number(user.reservedProfit || 0)
-    )
-  );
-  const totalAvailable = balance + profit;
   const min = Number(plan.minDeposit);
   const max = Number(plan.maxDeposit);
   const amt = Number(amount);
 
-  // 1. Balance check
-  if (totalAvailable < amt) {
+  // 1. Balance check (Deposit Balance only - profits cannot be invested)
+  if (balance < amt) {
     return {
       success: false,
-      message: "Insufficient balance. Please fund your wallet or use your profit balance.",
+      message: "Insufficient deposit balance. Please make a deposit to invest (profits/earnings cannot be used to purchase investments).",
       status: 400,
     };
   }
@@ -44,7 +35,6 @@ export async function validateInvestmentEligibility(
       status: 400,
     };
   }
-
 
   return {
     success: true,

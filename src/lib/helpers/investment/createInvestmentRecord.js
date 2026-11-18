@@ -59,36 +59,18 @@ export async function createInvestmentRecord(
     }
 
     const balance = Number(user.accountBalance || 0);
-    const profit = Math.max(
-      0,
-      Number(
-        user.availableProfit !== undefined
-          ? user.availableProfit
-          : Number(user.totalProfit || 0) - Number(user.reservedProfit || 0)
-      )
-    );
-
     const amt = Number(amount);
-    let deductFromBalance = 0;
-    let deductFromProfit = 0;
 
-    if (balance >= amt) {
-      deductFromBalance = amt;
-    } else {
-      deductFromBalance = balance;
-      deductFromProfit = amt - balance;
+    if (balance < amt) {
+      return {
+        success: false,
+        error: "Insufficient deposit balance. Profits cannot be invested.",
+      };
     }
 
-    const decFields = {};
-    if (deductFromBalance > 0) {
-      decFields.accountBalance = deductFromBalance;
-    }
-    if (deductFromProfit > 0) {
-      decFields.totalProfit = deductFromProfit;
-      if (user.availableProfit !== undefined) {
-        decFields.availableProfit = deductFromProfit;
-      }
-    }
+    const decFields = {
+      accountBalance: amt,
+    };
 
     const transaction = client.transaction();
 
