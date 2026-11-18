@@ -76,6 +76,7 @@ export const getDashboardStatsController = asyncHandler(async (req, res) => {
       totalStaked: Number(userData.totalInvestment || 0),
       totalCommission: totalProfit,
       commission: availableProfit, // Spendable
+      availableProfit,
       totalWithdrawalAmount,
     }
   );
