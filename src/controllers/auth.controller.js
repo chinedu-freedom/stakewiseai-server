@@ -391,8 +391,8 @@ export const forgotPassword = asyncHandler(async (req, res) => {
 
 export const resetPassword = asyncHandler(async (req, res) => {
   const sanitized = sanitizeInput(req.body);
-  const email = sanitized.email?.trim().toLowerCase();
-  const { newPassword } = sanitized;
+  const email = (sanitized.email || sanitized.phoneNumber)?.trim().toLowerCase();
+  const newPassword = sanitized.newPassword || sanitized.password;
 
   if (!email || !newPassword) {
     return sendResponse(
